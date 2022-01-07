@@ -1,6 +1,6 @@
 ## Workshop Collection Downloader
 
-Uses https://steamworkshopdownloader.io/ to download each mod in collection one by one, and save it to one directory. 
+Uses https://steamworkshopdownloader.io/ to download each mod in collection one by one, and save it to ouput directory. 
 
 ### Usage
 
