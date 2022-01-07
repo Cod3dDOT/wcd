@@ -4,11 +4,11 @@ Uses https://steamworkshopdownloader.io/ to download each mod in collection one 
 
 ### Usage
 
-`python3 md2.py -cu COLLECTIONURL`
+`python3 wcd.py -cu COLLECTIONURL`
 
-All options `python3 md2.py -h`:
+All options `python3 wcd.py -h`:
 ```
-usage: md2.py [-h] -cu COLLECTIONURL [-dir DIRECTORY] [-f]
+usage: wcd.py [-h] -cu COLLECTIONURL [-dir DIRECTORY] [-f]
 
 optional arguments:
   -h, --help            show this help message and exit
