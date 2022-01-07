@@ -13,6 +13,8 @@ usage: wcd.py [-h] -cu COLLECTIONURL [-dir DIRECTORY] [-f]
 optional arguments:
   -h, --help            show this help message and exit
   -cu COLLECTIONURL, --collectionUrl COLLECTIONURL
+                        Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*
   -dir DIRECTORY, --directory DIRECTORY
-  -f, --force
+                        Output directory. A folder with collection name will be saved here.
+  -f, --force           Do not skip downloaded mods and redownload them.
 ```
