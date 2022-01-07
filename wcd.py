@@ -6,11 +6,23 @@ import os
 def parseArgs():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-cu", "--collectionUrl", type=str, required=True)
-    parser.add_argument("-dir", "--directory", type=str,
-                        required=False, default="downloads/")
+    parser.add_argument("-cu",
+                        "--collectionUrl",
+                        type=str,
+                        required=True,
+                        help="Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+
+    parser.add_argument("-dir",
+                        "--directory",
+                        type=str,
+                        required=False,
+                        default="downloads/",
+                        help="Output directory. A folder with collection name will be saved here.")
+
     parser.add_argument("-f", "--force",
-                        required=False, action='store_true')
+                        required=False,
+                        action="store_true",
+                        help="Do not skip downloaded mods and redownload them.")
 
     args = parser.parse_args()
     return args
