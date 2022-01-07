@@ -33,17 +33,21 @@ class WorkshopCollection(WorkshopItem):
             )
             return
 
-        self.name = soup.find(
-            'div', {'class': "workshopItemDetailsHeader"}
-        ).find(
-            'div', {"class": "workshopItemTitle"}
-        ).text
+        self.SetName(
+            soup.find(
+                'div', {'class': "workshopItemDetailsHeader"}
+            ).find(
+                'div', {"class": "workshopItemTitle"}
+            ).text
+        )
 
-        self.appid = soup.find(
-            'div', {'class': "breadcrumbs"}
-        ).find(
-            'a', href=True
-        )["href"].split("app/")[1]
+        self.SetAppId(
+            soup.find(
+                'div', {'class': "breadcrumbs"}
+            ).find(
+                'a', href=True
+            )["href"].split("app/")[1]
+        )
 
         for modDiv in itemDivs:
             link = modDiv.find(href=True)

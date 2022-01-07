@@ -30,6 +30,12 @@ class WorkshopItem:
         self.appid = appid
         self.name = slugify(name)
 
+    def SetName(self, name):
+        self.name = slugify(name)
+
+    def SetAppId(self, appid):
+        self.appid = appid
+
     def getSteamUrl(self):
         '''Returns mod steam url.'''
         return f"https://steamcommunity.com/workshop/filedetails/?id={self.id}"
