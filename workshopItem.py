@@ -26,9 +26,12 @@ class WorkshopItem:
     appid: str = ""
 
     def __init__(self, id, appid="", name="") -> None:
+        self.SetId(id)
+        self.SetAppId(appid)
+        self.SetName(name)
+
+    def SetId(self, id):
         self.id = id
-        self.appid = appid
-        self.name = slugify(name)
 
     def SetName(self, name):
         self.name = slugify(name)
@@ -40,11 +43,13 @@ class WorkshopItem:
         '''Returns mod steam url.'''
         return f"https://steamcommunity.com/workshop/filedetails/?id={self.id}"
 
-    def json(self):
-        '''Retuns dict with name, id, and app id.'''
-        return {"name": self.name, "id": self.id, "appid": self.appid}
-
     @staticmethod
     def getIdFromSteamUrl(url):
         '''Returns mod id from steam url.'''
         return url.split("?id=")[1]
+
+    def __str__(self) -> str:
+        return f"{{WorkshopItem: name: {self.itemName} | id: {self.itemId} | appid: {self.appId}}}"
+
+    def __repr__(self) -> str:
+        return f"{{WorkshopItem - name: {self.itemName} | id: {self.itemId} | appid: {self.appId}}}"

@@ -1,16 +1,23 @@
 from workshopCollection import WorkshopCollection
 import argparse
 import os
+import json
 
 
 def parseArgs():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-cu",
-                        "--collectionUrl",
-                        type=str,
-                        required=True,
-                        help="Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument("-cu",
+                       "--collectionUrl",
+                       type=str,
+                       help="Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+
+    group.add_argument("-cjson",
+                       "--collectionJson",
+                       type=str,
+                       help="Generated JSON file from this script.")
 
     parser.add_argument("-dir",
                         "--directory",
@@ -28,15 +35,26 @@ def parseArgs():
     return args
 
 
+def readJsonFile(jsonoFilePath):
+    with open(jsonoFilePath, "r") as jsonFile:
+        return json.load(jsonFile)
+
+
 def main():
     args = parseArgs()
     dir = os.path.abspath(args.directory)
-    url = args.collectionUrl
     force = args.force
 
-    wCollectionId = WorkshopCollection.getIdFromSteamUrl(url)
-    wCollection = WorkshopCollection(wCollectionId)
-    wCollection.getCollectionInfo()
+    steamUrl = args.collectionUrl
+    jsonPath = args.collectionJson
+
+    wCollection = None
+    if (steamUrl):
+        wCollection = WorkshopCollection.fromUrl(steamUrl)
+
+    if (jsonPath):
+        jsonDict = readJsonFile(jsonPath)
+        wCollection = WorkshopCollection.fromJson(jsonDict)
     wCollection.download(dir, force)
 
 
