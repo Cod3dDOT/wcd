@@ -1,3 +1,5 @@
+# 1.0
+
 import argparse
 import os
 import json
@@ -31,7 +33,7 @@ def parseArgs():
     parser.add_argument("-f", "--force",
                         required=False,
                         action="store_true",
-                        help="Do not skip downloaded mods and redownload them.")
+                        help="Force to redownload everything xD.")
 
     args = parser.parse_args()
 
