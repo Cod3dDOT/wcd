@@ -4,19 +4,19 @@ Uses https://steamworkshopdownloader.io/ to download each mod in collection one 
 
 ### Usage
 
-`python3 wcd.py -cu COLLECTIONURL`
+Download collection for the first time: `python3 wcd.py -curl COLLECTIONURL -o OUTPUTFOLDER`
+Update collection: `python3 wcd.py -cjson OUTPUTFOLDER/my-collection-name/collection.json`
 
 All options `python3 wcd.py -h`:
 ```
-usage: wcd.py [-h] (-cu COLLECTIONURL | -cjson COLLECTIONJSON) [-dir DIRECTORY] [-f]
+usage: wcd.py [-h] (-curl COLLECTIONURL | -cjson COLLECTIONJSON) [-o OUTPUT] [-f]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -cu COLLECTIONURL, --collectionUrl COLLECTIONURL
-                        Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*
+  -curl COLLECTIONURL, --collectionUrl COLLECTIONURL
+                        Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*
   -cjson COLLECTIONJSON, --collectionJson COLLECTIONJSON
                         Generated JSON file from this script.
-  -dir DIRECTORY, --directory DIRECTORY
-                        Output directory. A folder with collection name will be saved here.
-  -f, --force           Do not skip downloaded mods and redownload them.
+  -o OUTPUT, --output OUTPUT
+                        Output directory. A folder with collection name will be created here.
 ```
