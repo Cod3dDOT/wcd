@@ -1,11 +1,9 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import re
 
 from classes import WorkshopItem
-
-import utils.logger as logger
+from utils import logger
 
 
 class SteamAPIException(Exception):
@@ -203,45 +201,3 @@ def GetItemsUpdatedInfo(fileIdList: list[int]) -> list[WorkshopItem]:
         in items
         if item["result"] == 1
     ]
-
-# def getCollectionInfoOld(collection) -> None:
-    #     import classes
-    #     '''Gets collection name, app id, and mods.'''
-
-    #     if (not collection.id):
-    #         logger.LogError("Can't get collection info without knowing its id.")
-    #         return
-
-    #     url = collection.steamUrl
-    #     html_doc = requests.get(url).text
-    #     soup = BeautifulSoup(html_doc, 'html.parser')
-
-    #     itemDivs = soup.find_all('div', {'class': "collectionItemDetails"})
-
-    #     collectionId = url.split("?id=")[1]
-    #     if (collectionId != collection.id):
-    #         logger.LogError(
-    #             "Something went terribly wrong and we got the wrong collection. \
-    #             Exiting."
-    #         )
-    #         return
-
-    #     collection.name = soup.find(
-    #         'div', {'class': "workshopItemDetailsHeader"}
-    #     ).find(
-    #         'div', {"class": "workshopItemTitle"}
-    #     ).text
-
-    #     collection.appid = soup.find(
-    #         'div', {'class': "breadcrumbs"}
-    #     ).find(
-    #         'a', href=True
-    #     )["href"].split("app/")[1]
-
-    #     for modDiv in itemDivs:
-    #         link = modDiv.find(href=True)
-    #         modName = link.find('div').text
-    #         modId = link['href'].split("?id=")[1]
-    #         modAppid = collection.appid
-    #         mod = classes.WorkshopItem(modId, modAppid, modName)
-    #         collection.items.append(mod)

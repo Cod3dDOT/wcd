@@ -1,10 +1,8 @@
 import io
 import zipfile
 
-from sympy import false
-
-from classes.workshopItemBase import WorkshopItemBase
-import utils.logger as logger
+from classes import WorkshopItemBase
+from utils import logger
 
 
 class WorkshopItem(WorkshopItemBase):

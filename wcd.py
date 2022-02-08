@@ -14,7 +14,7 @@ def parseArgs():
     group.add_argument("-curl",
                        "--collectionUrl",
                        type=str,
-                       help="Steam collection url. Pattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+                       help="Steam collection url.\nPattern: https://steamcommunity.com/workshop/filedetails/?id=*")
 
     group.add_argument("-cjson",
                        "--collectionJson",
