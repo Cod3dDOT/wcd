@@ -73,7 +73,7 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
         download = item.needsUpdate or forceRedownload
         if (not download):
             logger.LogWarning(
-                f"{logger.Indent(2)}"
+                f"{logger.Indent(1)}"
                 f"{index}. "
                 f"{item.name}"
             )
