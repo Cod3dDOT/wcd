@@ -30,13 +30,29 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
     global isDownloading
     global stopDownload
 
-    if (not SteamAPI.Validator.ValidSteamItemId(collection.id) or
-        not SteamAPI.Validator.ValidSteamItemId(collection.appid) and
-        not (len(collection.items) > 0)
-        ):
+    hasValidId = SteamAPI.Validator.ValidSteamItemId(collection.id) or \
+        collection.id == "DummyIdForLocalCollection"
+
+    hasValidAppId = SteamAPI.Validator.ValidSteamItemId(collection.appid)
+
+    if (not hasValidId or not hasValidAppId):
         logger.LogError(
             f"{logger.StartIndent()}Can't download collection without knowing its id or its app id.\n"
-            f"{logger.Indent()}Call SteamApi.getCollectionDetails() first!"
+            f"{logger.Indent(1)}Call SteamApi.getCollectionDetails() first!\n"
+            f"{logger.Indent(1)}Called with collection: {collection}"
+        )
+        return
+
+    hasItemsToDownload = len([
+        item for item
+        in collection.items
+        if item.needsUpdate == True
+    ]) > 0 or forceRedownload
+
+    if (not hasItemsToDownload):
+        logger.LogError(
+            f"{logger.StartIndent()}Collection has no items to download.\n"
+            f"{logger.Indent(1)}Called with collection: {collection}"
         )
         return
 

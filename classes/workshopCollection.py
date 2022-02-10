@@ -27,7 +27,7 @@ class WorkshopCollection(WorkshopItemBase):
                 BADFIXItems.append(item)
             self.updateItemRegisters(BADFIXItems)
         else:
-            if (len(self.items) > 0):
+            if (id == "DummyIdForLocalCollection" and len(self.items) > 0):
                 super().__init__(id, appid, name)
                 itemIds = [x.id for x in self.items]
                 updatedItems = SteamAPI.GetItemsUpdatedInfo(itemIds)
@@ -53,7 +53,7 @@ class WorkshopCollection(WorkshopItemBase):
 
     @classmethod
     def fromJson(cls, jsonDict: str):
-        id = jsonDict.get("collectionId")
+        id = "DummyIdForLocalCollection"  # jsonDict.get("collectionId")
         appid = jsonDict.get("appId")
         name = jsonDict.get("collectionName")
         items = jsonDict.get("items")
