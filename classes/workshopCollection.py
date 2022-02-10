@@ -129,3 +129,9 @@ class WorkshopCollection(WorkshopItemBase):
 
             data["items"] = jsonItems
             file.write(json.dumps(data))
+
+    def __str__(self) -> str:
+        return f"{{WorkshopCollection - name: {self.name} | id: {self.id} | appid: {self.appid} }}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
