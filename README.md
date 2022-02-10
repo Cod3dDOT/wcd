@@ -17,9 +17,16 @@ What the script does:
 3. Uses https://steamworkshopdownloader.io/ to download each item in collection, where lastUpdated does not match the lastest update date.
 4. Updates .json file with corresponding changes.
 
-#### Does it work if I modify .json file?
+#### Does it work if I modify a .json file?
 Yes, you can modify or create your own .json files, and then specify them like in 'How to update?' section.
 The script will download any items, which are specified in .json file.
+
+#### Color coding
+When downloading, downloaded items can be of different colors:
+
+<span style="color:black">The default color (white): Item is downloading</span>
+<span style="color:orange">Yellow color: </span>Item is skipped due to being up-to-date
+<span style="color:red">Red color: </span>Item is skipped due to error
 
 ### Options
 `python3 wcd.py -h`:
