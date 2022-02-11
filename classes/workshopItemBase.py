@@ -73,7 +73,7 @@ class WorkshopItemBase:
         self._version = value
 
     def __str__(self) -> str:
-        return f"{{WorkshopItem - name: {self.name} | id: {self.id} | appid: {self.appid} | lastUpdated: {self.lastUpdated}}}"
+        return f"{{WorkshopItemBase - name: {self.name} | id: {self.id} | appid: {self.appid} | lastUpdated: {self.lastUpdated}}}"
 
     def __repr__(self) -> str:
         return self.__str__()

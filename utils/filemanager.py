@@ -29,6 +29,10 @@ def deleteFolder(path: str) -> None:
     shutil.rmtree(path)
 
 
+def createFolder(path: str) -> None:
+    os.makedirs(path)
+
+
 def saveZipFile(directory: str, zipFileBytes: bytes):
     if (zipFileBytes == None):
         raise Exception(

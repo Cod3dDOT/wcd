@@ -160,7 +160,7 @@ def GetWorkshopCollectionInfo(collectionId: str) -> tuple[str, int, list[Worksho
         if item["filetype"] == 0
     ]
 
-    UpdatedItemsInfo = GetItemsUpdatedInfo(
+    UpdatedItemsInfo = GetItemsInfo(
         [collectionId] + collectionItemsIdList
     )
     collectionName = UpdatedItemsInfo[0].name
@@ -173,7 +173,11 @@ def GetWorkshopCollectionInfo(collectionId: str) -> tuple[str, int, list[Worksho
     )
 
 
-def GetItemsUpdatedInfo(fileIdList: list[int]) -> list[WorkshopItem]:
+def GetLocalCollectionInfo(collectionItems: list[WorkshopItem]) -> list[WorkshopItem]:
+    return GetItemsInfo([item.id for item in collectionItems])
+
+
+def GetItemsInfo(fileIdList: list[int]) -> list[WorkshopItem]:
     try:
         items = ISteamRemoteStorage.GetPublishedFileDetails(
             fileIdList

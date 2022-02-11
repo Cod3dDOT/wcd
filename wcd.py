@@ -16,12 +16,12 @@ def parseArgs():
     group.add_argument("-curl",
                        "--collectionUrl",
                        type=str,
-                       help="Steam collection url.\nPattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+                       help="Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*")
 
     group.add_argument("-cjson",
                        "--collectionJson",
                        type=str,
-                       help="Generated JSON file from this script.")
+                       help="Generated collection.json file from this script.")
 
     parser.add_argument("-o",
                         "--output",
@@ -63,9 +63,14 @@ def main():
         wCollection = WorkshopCollection.fromJson(jsonDict)
 
     try:
-        SteamDownloaderAPI.DownloadCollection(
-            wCollection, OutputDirectory, ForceRedownload
-        )
+        if (SteamCollectionUrl):
+            SteamDownloaderAPI.DownloadCollection(
+                wCollection, OutputDirectory, ForceRedownload
+            )
+        else:
+            SteamDownloaderAPI.UpdateCollection(
+                wCollection, OutputDirectory
+            )
     except KeyboardInterrupt:
         SteamDownloaderAPI.StopDownload()
 
