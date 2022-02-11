@@ -24,9 +24,9 @@ The script will download any items, which are specified in .json file.
 #### Color coding
 When downloading, downloaded items can be of different colors:
 
-- ![#The default color (white): Item is downloading](https://via.placeholder.com/15/fff/000000?text=+) `The default color (white): Item is downloading`
-- ![#Yellow color: Item is skipped due to being up-to-date](https://via.placeholder.com/15/c5f015/000000?text=+) `#Yellow color: Item is skipped due to being up-to-date`
-- ![#Red color: Item is skipped due to error](https://via.placeholder.com/15/1589F0/000000?text=+) `#Red color: Item is skipped due to error`
+- ![#The default color: Item is downloading](https://via.placeholder.com/15/fff/000000?text=+) The default color: Item is downloading
+- ![#Yellow color: Item is skipped due to being up-to-date](https://via.placeholder.com/15/ffbc0a/000000?text=+) Yellow color: Item is skipped due to being up-to-date
+- ![#Red color: Item is skipped due to error](https://via.placeholder.com/15/d80032/000000?text=+) Red color: Item is skipped due to error
 
 ### Options
 `python3 wcd.py -h`:
