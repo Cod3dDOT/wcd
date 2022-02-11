@@ -6,7 +6,7 @@ import time
 from classes import WorkshopCollection
 from classes import WorkshopItem
 
-from utils import logger
+from utils import filemanager, logger
 from api import SteamAPI
 
 isDownloading = False
@@ -30,13 +30,29 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
     global isDownloading
     global stopDownload
 
-    if (not SteamAPI.Validator.ValidSteamItemId(collection.id) or
-        not SteamAPI.Validator.ValidSteamItemId(collection.appid) and
-        not (len(collection.items) > 0)
-        ):
+    hasValidId = SteamAPI.Validator.ValidSteamItemId(collection.id) or \
+        collection.id == "DummyIdForLocalCollection"
+
+    hasValidAppId = SteamAPI.Validator.ValidSteamItemId(collection.appid)
+
+    if (not hasValidId or not hasValidAppId):
         logger.LogError(
             f"{logger.StartIndent()}Can't download collection without knowing its id or its app id.\n"
-            f"{logger.Indent()}Call SteamApi.getCollectionDetails() first!"
+            f"{logger.Indent(1)}Call SteamApi.getCollectionDetails() first!\n"
+            f"{logger.Indent(1)}Called with collection: {collection}"
+        )
+        return
+
+    hasItemsToDownload = len([
+        item for item
+        in collection.items
+        if item.needsUpdate == True
+    ]) > 0 or forceRedownload
+
+    if (not hasItemsToDownload):
+        logger.LogError(
+            f"{logger.StartIndent()}Collection has no items to download.\n"
+            f"{logger.Indent(1)}Called with collection: {collection}"
         )
         return
 
@@ -52,12 +68,10 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
     successfulDownloads = 0
     for index, item in enumerate(collection.items):
 
-        itemDirectory = f"{collectionDirectory}/{item.name}"
-
         download = item.needsUpdate or forceRedownload
         if (not download):
             logger.LogWarning(
-                f"{logger.Indent(2)}"
+                f"{logger.Indent(1)}"
                 f"{index}. "
                 f"{item.name}"
             )
@@ -71,13 +85,16 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
             )
         try:
             downloadedData = downloadItem(item)
-            item.downloadedData = downloadedData
-            item.saveToDisk(itemDirectory)
+            itemDirectory = f"{collectionDirectory}/{item.name}"
+            if (filemanager.doesFolderExist(itemDirectory)):
+                filemanager.deleteFolder(itemDirectory)
+            print(f"{logger.Indent(2)}Extracting")
+            filemanager.saveZipFile(itemDirectory, downloadedData)
             successfulDownloads += 1
         except Exception as exception:
             logger.LogError(
-                f"{logger.StartIndent()}Exception occured while trying to download collection\n"
-                f"{logger.Indent(1)}{exception}"
+                f"{logger.Indent(1)}{logger.StartIndent()}Exception occured while trying to download collection\n"
+                f"{logger.Indent(2)}{exception}"
             )
         if (stopDownload):
             logger.LogSuccess(

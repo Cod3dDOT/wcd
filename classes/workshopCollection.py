@@ -27,7 +27,7 @@ class WorkshopCollection(WorkshopItemBase):
                 BADFIXItems.append(item)
             self.updateItemRegisters(BADFIXItems)
         else:
-            if (len(self.items) > 0):
+            if (id == "DummyIdForLocalCollection" and len(self.items) > 0):
                 super().__init__(id, appid, name)
                 itemIds = [x.id for x in self.items]
                 updatedItems = SteamAPI.GetItemsUpdatedInfo(itemIds)
@@ -53,7 +53,7 @@ class WorkshopCollection(WorkshopItemBase):
 
     @classmethod
     def fromJson(cls, jsonDict: str):
-        id = jsonDict.get("collectionId")
+        id = "DummyIdForLocalCollection"  # jsonDict.get("collectionId")
         appid = jsonDict.get("appId")
         name = jsonDict.get("collectionName")
         items = jsonDict.get("items")
@@ -99,7 +99,10 @@ class WorkshopCollection(WorkshopItemBase):
                 dups = [x for x in items
                         if (x.id == wItem.id or x.name == wItem.name)
                         ]
-                logger.LogWarning(f"Possible duplicates:\n{wItem}")
+                logger.LogWarning(
+                    "Possible duplicates:\n"
+                    f"{wItem}"
+                )
                 for idx, dup in enumerate(dups):
                     logger.LogWarning(f"    {idx}. - {dup}")
             wItems.append(wItem)
@@ -129,3 +132,9 @@ class WorkshopCollection(WorkshopItemBase):
 
             data["items"] = jsonItems
             file.write(json.dumps(data))
+
+    def __str__(self) -> str:
+        return f"{{WorkshopCollection - name: {self.name} | id: {self.id} | appid: {self.appid} }}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
