@@ -6,7 +6,7 @@ import time
 from classes import WorkshopCollection
 from classes import WorkshopItem
 
-from utils import logger
+from utils import filemanager, logger
 from api import SteamAPI
 
 isDownloading = False
@@ -68,8 +68,6 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
     successfulDownloads = 0
     for index, item in enumerate(collection.items):
 
-        itemDirectory = f"{collectionDirectory}/{item.name}"
-
         download = item.needsUpdate or forceRedownload
         if (not download):
             logger.LogWarning(
@@ -87,13 +85,16 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, forceRedo
             )
         try:
             downloadedData = downloadItem(item)
-            item.downloadedData = downloadedData
-            item.saveToDisk(itemDirectory)
+            itemDirectory = f"{collectionDirectory}/{item.name}"
+            if (filemanager.doesFolderExist(itemDirectory)):
+                filemanager.deleteFolder(itemDirectory)
+            print(f"{logger.Indent(2)}Extracting")
+            filemanager.saveZipFile(itemDirectory, downloadedData)
             successfulDownloads += 1
         except Exception as exception:
             logger.LogError(
-                f"{logger.StartIndent()}Exception occured while trying to download collection\n"
-                f"{logger.Indent(1)}{exception}"
+                f"{logger.Indent(1)}{logger.StartIndent()}Exception occured while trying to download collection\n"
+                f"{logger.Indent(2)}{exception}"
             )
         if (stopDownload):
             logger.LogSuccess(

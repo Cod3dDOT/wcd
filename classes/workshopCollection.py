@@ -99,7 +99,10 @@ class WorkshopCollection(WorkshopItemBase):
                 dups = [x for x in items
                         if (x.id == wItem.id or x.name == wItem.name)
                         ]
-                logger.LogWarning(f"Possible duplicates:\n{wItem}")
+                logger.LogWarning(
+                    "Possible duplicates:\n"
+                    f"{wItem}"
+                )
                 for idx, dup in enumerate(dups):
                     logger.LogWarning(f"    {idx}. - {dup}")
             wItems.append(wItem)
