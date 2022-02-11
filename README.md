@@ -21,13 +21,6 @@ What the script does:
 Yes, you can modify or create your own collection.json files, and then use them to download / update.
 The script will download any items, which are specified in collection.json file.
 
-#### Color coding
-When downloading, downloaded items can be of different colors:
-
-- ![#The default color: Item is downloading](https://via.placeholder.com/15/fff/000000?text=+) Default color: Item is downloading
-- ![#Yellow color: Item is skipped due to being up-to-date](https://via.placeholder.com/15/ffbc0a/000000?text=+) Yellow color: Item is skipped due to being up-to-date
-- ![#Red color: Item is skipped due to error](https://via.placeholder.com/15/d80032/000000?text=+) Red color: Item is skipped due to error
-
 ### Options
 `python3 wcd.py -h`:
 ```
