@@ -33,12 +33,12 @@ def parseArgs():
     parser.add_argument("-f", "--force",
                         required=False,
                         action="store_true",
-                        help="Force redownload everything.")
+                        help="Force redownload everything. (only when updating)")
 
     parser.add_argument("-c", "--cleanUp",
                         required=False,
                         action="store_true",
-                        help="Clean up removed items")
+                        help="Clean up removed items. (only when updating)")
 
     args = parser.parse_args()
 
@@ -69,9 +69,9 @@ def main():
         wCollection = WorkshopCollection.fromJson(jsonDict)
 
     try:
-        if (SteamCollectionUrl):
+        if (SteamCollectionUrl or ForceRedownload):
             SteamDownloaderAPI.DownloadCollection(
-                wCollection, OutputDirectory, ForceRedownload
+                wCollection, OutputDirectory, True
             )
         else:
             SteamDownloaderAPI.UpdateCollection(
