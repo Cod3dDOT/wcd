@@ -2,11 +2,8 @@ from classes import WorkshopItemBase
 
 
 class WorkshopItem(WorkshopItemBase):
-    needsUpdate: bool = False
-
-    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: str = "", needsUpdate: bool = False) -> None:
+    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: str = "") -> None:
         super().__init__(id, appid, name, lastUpdated)
-        self.needsUpdate = needsUpdate
 
     @classmethod
     def fromJson(cls, json):

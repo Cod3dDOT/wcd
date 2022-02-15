@@ -4,47 +4,35 @@ import json
 from classes.workshopItemBase import WorkshopItemBase
 from classes.workshopItem import WorkshopItem
 
-from utils import logger
+from utils import logger, filemanager
 from api import SteamAPI
 
 
 class WorkshopCollection(WorkshopItemBase):
-    items: list[WorkshopItem] = []
+    localItems: list[WorkshopItem] = []
+    newItems: list[WorkshopItem] = []
 
-    def __init__(self, id: str, appid: int = -1, name: str = "", items: list[WorkshopItem] = []) -> None:
-        self.items = items
+    def __init__(self, id: str, appid: int = -1, name: str = "", localItems: list[WorkshopItem] = []) -> None:
         if (SteamAPI.Validator.ValidSteamItemId(id)):
             super().__init__(id, appid, name)
-            title, appid, updatedItems = SteamAPI.GetWorkshopCollectionInfo(
+            title, appid, newItems = SteamAPI.GetWorkshopCollectionInfo(
                 self.id
             )
             self.name = title
             self.appid = appid
-            # BAD
-            BADFIXItems = []
-            for item in updatedItems:
-                item.needsUpdate = True
-                BADFIXItems.append(item)
-            self.updateItemRegisters(BADFIXItems)
+            self.newItems = newItems
         else:
-            if (id == "DummyIdForLocalCollection" and len(self.items) > 0):
+            if (len(localItems) > 0):
                 super().__init__(id, appid, name)
-                itemIds = [x.id for x in self.items]
-                updatedItems = SteamAPI.GetItemsUpdatedInfo(itemIds)
-                self.updateItemRegisters(updatedItems)
+                self.localItems = localItems
+                self.newItems = SteamAPI.GetLocalCollectionInfo(
+                    self.localItems
+                )
             else:
                 raise Exception(
-                    f"Workshop collection: incorrect id: {id}"
+                    "Could not create a collection.\n"
+                    f"Params: {id}, {appid}, {name}, {localItems}"
                 )
-
-    def updateItemRegisters(self, updatedItems: WorkshopItem):
-        for index, updatedItem in enumerate(updatedItems):
-            if (len(self.items) > index):
-                if (self.items[index].lastUpdated != updatedItem.lastUpdated):
-                    updatedItem.needsUpdate = True
-                self.items[index] = updatedItem
-            else:
-                self.items.append(updatedItem)
 
     @classmethod
     def fromUrl(cls, url: str):
@@ -53,10 +41,10 @@ class WorkshopCollection(WorkshopItemBase):
 
     @classmethod
     def fromJson(cls, jsonDict: str):
-        id = "DummyIdForLocalCollection"  # jsonDict.get("collectionId")
+        id = None
         appid = jsonDict.get("appId")
         name = jsonDict.get("collectionName")
-        items = jsonDict.get("items")
+        jsonItems = jsonDict.get("items")
 
         if (appid is None):
             logger.LogError(
@@ -64,7 +52,7 @@ class WorkshopCollection(WorkshopItemBase):
             )
             return
 
-        if (items is None):
+        if (jsonItems is None):
             logger.LogError(
                 "You are specifying local collection, but no items were found!"
             )
@@ -73,64 +61,67 @@ class WorkshopCollection(WorkshopItemBase):
         if (name is None):
             name = "NotInCollection"
 
-        wItems: list[WorkshopItem] = []
+        localItems: list[WorkshopItem] = []
         ids: list[str] = []
         names: list[str] = []
-        for item in items:
+        for jsonItem in jsonItems:
             wItem = WorkshopItem(
-                int(item.get("itemId")),
-                item.get("appId"),
-                item.get("itemName"),
-                item.get("lastUpdated")
+                jsonItem.get("itemId"),
+                jsonItem.get("appId"),
+                jsonItem.get("itemName"),
+                jsonItem.get("lastUpdated")
             )
             if (wItem.id is None):
                 logger.LogError(
-                    f"Error parsing item: {item}. Item id is not specified!"
+                    f"Error parsing item: {jsonItem}. Item id is not specified!"
                 )
                 continue
 
             if (wItem.appid and wItem.appid != appid):
                 logger.LogError(
-                    f"Error parsing item: {item}. Item appid does not match collection id!"
+                    f"Error parsing item: {jsonItem}. Item appid does not match collection id!"
                 )
                 continue
 
             if (wItem.id in ids or wItem.name in names):
-                dups = [x for x in items
-                        if (x.id == wItem.id or x.name == wItem.name)
-                        ]
+                dups = [
+                    x for x
+                    in jsonItems
+                    if x.id == wItem.id or x.name == wItem.name
+                ]
                 logger.LogWarning(
                     "Possible duplicates:\n"
                     f"{wItem}"
                 )
                 for idx, dup in enumerate(dups):
                     logger.LogWarning(f"    {idx}. - {dup}")
-            wItems.append(wItem)
 
-        if (len(wItems) == 0):
+            ids.append(wItem.id)
+            names.append(wItem.name)
+            localItems.append(wItem)
+
+        if (len(localItems) == 0):
             logger.LogError(
-                "You are specifying local collection, but no mods were parsed successfully!"
+                "You are specifying local collection, but no items were parsed successfully!"
             )
             return
 
-        return cls(id, appid, name, wItems)
+        return cls(id, appid, name, localItems)
 
     def json(self):
         '''Retuns dict with name, id, and app id.'''
         return {"collectionName": self.name, "collectionId": self.id, "appId": self.appid}
 
     def saveAsJson(self, directory):
-        if (not os.path.exists(directory)):
-            os.makedirs(directory)
+        if (not filemanager.doesDirectoryExist(directory)):
+            filemanager.createDirectory(directory)
 
         with open(f"{directory}/collection.json", "w") as file:
             data = self.json()
-
-            jsonItems = []
-            for item in self.items:
-                jsonItems.append(item.json())
-
-            data["items"] = jsonItems
+            data["items"] = [
+                item.json() for item
+                in self.newItems
+            ]
             file.write(json.dumps(data))
 
     def __str__(self) -> str:

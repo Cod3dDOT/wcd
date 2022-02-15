@@ -1,4 +1,4 @@
-# 1.0.1
+# 1.1.1
 
 import argparse
 import os
@@ -16,12 +16,12 @@ def parseArgs():
     group.add_argument("-curl",
                        "--collectionUrl",
                        type=str,
-                       help="Steam collection url.\nPattern: https://steamcommunity.com/workshop/filedetails/?id=*")
+                       help="Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*")
 
     group.add_argument("-cjson",
                        "--collectionJson",
                        type=str,
-                       help="Generated JSON file from this script.")
+                       help="Generated collection.json file from this script.")
 
     parser.add_argument("-o",
                         "--output",
@@ -33,17 +33,23 @@ def parseArgs():
     parser.add_argument("-f", "--force",
                         required=False,
                         action="store_true",
-                        help="Force to redownload everything xD.")
+                        help="Force redownload everything. (only when updating)")
+
+    parser.add_argument("-c", "--cleanUp",
+                        required=False,
+                        action="store_true",
+                        help="Clean up removed items. (only when updating)")
 
     args = parser.parse_args()
 
     directory = os.path.abspath(args.output)
     force = args.force
+    cleanUp = args.cleanUp
 
     steamUrl = args.collectionUrl
     jsonPath = args.collectionJson
 
-    return directory, force, steamUrl, jsonPath
+    return directory, force, steamUrl, jsonPath, cleanUp
 
 
 def readJsonFile(jsonPath):
@@ -52,7 +58,7 @@ def readJsonFile(jsonPath):
 
 
 def main():
-    OutputDirectory, ForceRedownload, SteamCollectionUrl, JsonFilePath = parseArgs()
+    OutputDirectory, ForceRedownload, SteamCollectionUrl, JsonFilePath, CleanUp = parseArgs()
 
     wCollection = None
     if (SteamCollectionUrl):
@@ -63,9 +69,14 @@ def main():
         wCollection = WorkshopCollection.fromJson(jsonDict)
 
     try:
-        SteamDownloaderAPI.DownloadCollection(
-            wCollection, OutputDirectory, ForceRedownload
-        )
+        if (SteamCollectionUrl or ForceRedownload):
+            SteamDownloaderAPI.DownloadCollection(
+                wCollection, OutputDirectory, True
+            )
+        else:
+            SteamDownloaderAPI.UpdateCollection(
+                wCollection, OutputDirectory, True, CleanUp
+            )
     except KeyboardInterrupt:
         SteamDownloaderAPI.StopDownload()
 

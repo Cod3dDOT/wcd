@@ -6,7 +6,7 @@ import zipfile
 from utils import logger
 
 
-def doesFolderExist(path: str) -> bool:
+def doesDirectoryExist(path: str) -> bool:
     return os.path.isdir(path)
 
 
@@ -14,8 +14,8 @@ def doesFileExist(path: str) -> bool:
     return os.path.isfile(path)
 
 
-def deleteFolderContents(path: str) -> None:
-    if (not doesFolderExist(path)):
+def deleteAllDirectoryContents(path: str) -> None:
+    if (not doesDirectoryExist(path)):
         raise Exception(f"Folder does not exist: {path}")
 
     for root, dirs, files in os.walk('/path/to/folder'):
@@ -25,8 +25,26 @@ def deleteFolderContents(path: str) -> None:
             shutil.rmtree(os.path.join(root, d))
 
 
-def deleteFolder(path: str) -> None:
+def deleteDirectory(path: str) -> None:
     shutil.rmtree(path)
+
+
+def createDirectory(path: str) -> None:
+    os.makedirs(path)
+
+
+def listDirsInDirectory(path: str) -> list[str]:
+    return (dir for dir
+            in os.listdir(path)
+            if doesDirectoryExist(os.path.join(path, dir))
+            )
+
+
+def listFilesInDirectory(path: str) -> list[str]:
+    return (file for file
+            in os.listdir(path)
+            if doesFileExist(os.path.join(path, file))
+            )
 
 
 def saveZipFile(directory: str, zipFileBytes: bytes):
@@ -35,7 +53,7 @@ def saveZipFile(directory: str, zipFileBytes: bytes):
             "zipFileBytes is None."
         )
 
-    if (doesFolderExist(directory)):
+    if (doesDirectoryExist(directory)):
         raise Exception(
             f"Folder already exists: {directory}"
         )
