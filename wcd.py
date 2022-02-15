@@ -33,17 +33,23 @@ def parseArgs():
     parser.add_argument("-f", "--force",
                         required=False,
                         action="store_true",
-                        help="Force to redownload everything xD.")
+                        help="Force redownload everything.")
+
+    parser.add_argument("-c", "--cleanUp",
+                        required=False,
+                        action="store_true",
+                        help="Clean up removed items")
 
     args = parser.parse_args()
 
     directory = os.path.abspath(args.output)
     force = args.force
+    cleanUp = args.cleanUp
 
     steamUrl = args.collectionUrl
     jsonPath = args.collectionJson
 
-    return directory, force, steamUrl, jsonPath
+    return directory, force, steamUrl, jsonPath, cleanUp
 
 
 def readJsonFile(jsonPath):
@@ -52,7 +58,7 @@ def readJsonFile(jsonPath):
 
 
 def main():
-    OutputDirectory, ForceRedownload, SteamCollectionUrl, JsonFilePath = parseArgs()
+    OutputDirectory, ForceRedownload, SteamCollectionUrl, JsonFilePath, CleanUp = parseArgs()
 
     wCollection = None
     if (SteamCollectionUrl):
@@ -69,7 +75,7 @@ def main():
             )
         else:
             SteamDownloaderAPI.UpdateCollection(
-                wCollection, OutputDirectory
+                wCollection, OutputDirectory, True, CleanUp
             )
     except KeyboardInterrupt:
         SteamDownloaderAPI.StopDownload()

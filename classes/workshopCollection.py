@@ -113,8 +113,8 @@ class WorkshopCollection(WorkshopItemBase):
         return {"collectionName": self.name, "collectionId": self.id, "appId": self.appid}
 
     def saveAsJson(self, directory):
-        if (not filemanager.doesFolderExist(directory)):
-            filemanager.createFolder(directory)
+        if (not filemanager.doesDirectoryExist(directory)):
+            filemanager.createDirectory(directory)
 
         with open(f"{directory}/collection.json", "w") as file:
             data = self.json()

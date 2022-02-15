@@ -23,39 +23,55 @@ def StopDownload():
         stopDownload = True
 
 
-def UpdateCollection(collection: WorkshopCollection, directory: str) -> None:
+def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldItems: bool = True, removeDeletedItems: bool = True) -> None:
     '''Downloads all mods in collection.\n
     WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
 
     global isDownloading
     global stopDownload
 
-    newItemIdsList = [item.id for item in collection.newItems]
-    newItemIdsSet = set(newItemIdsList)
-    localItemIdsList = [item.id for item in collection.localItems]
-    localItemIdsSet = set(localItemIdsList)
+    collectionDirectory = f"{directory}/{collection.name}"
+
+    newItemIdsList: list[int] = [item.id for item in collection.newItems]
+    newItemIdsSet: set[int] = set(newItemIdsList)
+    localItemIdsList: list[int] = [item.id for item in collection.localItems]
+    localItemIdsSet: set[int] = set(localItemIdsList)
+
+    newItemsNameList: list[str] = [item.name for item in collection.newItems]
 
     willBeAddedIds: list[int] = list(
         newItemIdsSet - localItemIdsSet
     )
+
     willBeDeletedIds: list[int] = set(
         localItemIdsSet - newItemIdsSet
     )
+
     willBeUpdatedIds: list[int] = list(
         item.id for item
         in collection.localItems
-        if item.lastUpdated != collection.newItems[newItemIdsList.index(item.id)].lastUpdated
+        if item.lastUpdated != collection.newItems[
+            newItemIdsList.index(item.id)
+        ].lastUpdated
     )
+
     willBeIgnoredIds: list[int] = list(
         (newItemIdsSet - set(willBeUpdatedIds)) - set(willBeAddedIds)
     )
 
+    willBeDeletedFolders: list[str] = list(
+        dir for dir
+        in filemanager.listDirsInDirectory(collectionDirectory)
+        if (dir not in newItemsNameList)
+    )
+
     if (len(willBeUpdatedIds) == 0 and
-                len(willBeDeletedIds) == 0 and
-                len(willBeAddedIds) == 0
-            ):
+            len(willBeDeletedIds) == 0 and
+            len(willBeAddedIds) == 0 and
+            len(willBeDeletedFolders) == 0
+        ):
         logger.LogError(
-            f"{logger.StartIndent()}Collection has no items to download.\n"
+            f"{logger.StartIndent()}Collection has no items to change.\n"
             f"{logger.Indent(1)}Called with collection: {collection}"
         )
         return
@@ -74,7 +90,6 @@ def UpdateCollection(collection: WorkshopCollection, directory: str) -> None:
         f"{logger.StartIndent()}"
         f"Updating collection: {collection.name}"
     )
-    collectionDirectory = f"{directory}/{collection.name}"
 
     isDownloading = True
 
@@ -83,28 +98,37 @@ def UpdateCollection(collection: WorkshopCollection, directory: str) -> None:
             f"{logger.Indent(1)}Ignoring {len(willBeIgnoredIds)} up to date items"
         )
 
-    if len(willBeDeletedIds) > 0:
+    if ((len(willBeDeletedIds) > 0 or len(willBeDeletedFolders)) and removeDeletedItems):
         logger.LogMessage(
-            f"{logger.Indent(1)}Removing {len(willBeDeletedIds)} items"
+            f"{logger.Indent(1)}Removing {len(willBeDeletedIds) + len(willBeDeletedFolders)} items"
         )
         for index, itemId in enumerate(willBeDeletedIds):
             itemIndex = localItemIdsList.index(itemId)
             item = collection.localItems[itemIndex]
             logger.LogError(
-                f"{logger.Indent(1)}"
+                f"{logger.Indent(2)}"
                 f"{index}. "
                 f"{item.name}"
             )
             itemDirectory = f"{collectionDirectory}/{item.name}"
-            if (filemanager.doesFolderExist(itemDirectory)):
-                filemanager.deleteFolder(itemDirectory)
+            if (filemanager.doesDirectoryExist(itemDirectory)):
+                filemanager.deleteDirectory(itemDirectory)
 
+        for folder in willBeDeletedFolders:
+            logger.LogError(
+                f"{logger.Indent(2)}"
+                f"Deleting folder no longer associated with collection: "
+                f"{folder}"
+            )
+            if (filemanager.doesDirectoryExist(f"{collectionDirectory}/{folder}")):
+                filemanager.deleteDirectory(f"{collectionDirectory}/{folder}")
+
+    successfulDownloads = 0
     if len(willBeUpdatedIds) > 0:
         logger.LogMessage(
             f"{logger.Indent(1)}Updating {len(willBeUpdatedIds)} old items"
         )
 
-        successfulDownloads = 0
         for index, itemId in enumerate(willBeUpdatedIds):
             newItemIndex = newItemIdsList.index(itemId)
             newItem = collection.newItems[newItemIndex]
@@ -120,13 +144,13 @@ def UpdateCollection(collection: WorkshopCollection, directory: str) -> None:
                 f"{newItem.name}"
             )
 
-            if (filemanager.doesFolderExist(localItemDirectory)):
+            if (filemanager.doesDirectoryExist(localItemDirectory) and removeOldItems):
                 logger.LogMessage(f"{logger.Indent(2)}Deleting old folder...")
-                filemanager.deleteFolder(localItemDirectory)
+                filemanager.deleteDirectory(localItemDirectory)
 
-            if (filemanager.doesFolderExist(newItemDirectory)):
+            if (filemanager.doesDirectoryExist(newItemDirectory)):
                 logger.LogMessage(f"{logger.Indent(2)}Deleting old folder...")
-                filemanager.deleteFolder(newItemDirectory)
+                filemanager.deleteDirectory(newItemDirectory)
 
             try:
                 downloadedData = downloadItem(newItem)
@@ -184,8 +208,9 @@ def UpdateCollection(collection: WorkshopCollection, directory: str) -> None:
     collection.saveAsJson(collectionDirectory)
 
     logger.LogSuccess(
-        f"Downloaded collection: {collection.name}. \
-        Items: {successfulDownloads}/{len(collection.localItems)}"
+        f"{logger.StartIndent()}Updated collection: {collection.name}.\n"
+        f"{logger.Indent(1)}Updated items: {successfulDownloads}/{len(collection.newItems)}\n"
+        f"{logger.Indent(1)}Removed items: {len(willBeDeletedIds) + len(willBeDeletedFolders)}"
     )
 
 
@@ -195,9 +220,9 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
 
     collectionDirectory = f"{directory}/{collection.name}"
 
-    if filemanager.doesFolderExist(collectionDirectory):
+    if filemanager.doesDirectoryExist(collectionDirectory):
         if (overrideExistingDirectory):
-            filemanager.deleteFolder(collectionDirectory)
+            filemanager.deleteDirectory(collectionDirectory)
         else:
             logger.LogError(f"Directory already exists: {collectionDirectory}")
             return
@@ -245,8 +270,8 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
         try:
             downloadedData = downloadItem(item)
             itemDirectory = f"{collectionDirectory}/{item.name}"
-            if (filemanager.doesFolderExist(itemDirectory)):
-                filemanager.deleteFolder(itemDirectory)
+            if (filemanager.doesDirectoryExist(itemDirectory)):
+                filemanager.deleteDirectory(itemDirectory)
             print(f"{logger.Indent(2)}Extracting...")
             filemanager.saveZipFile(itemDirectory, downloadedData)
             successfulDownloads += 1
@@ -327,8 +352,8 @@ def downloadItem(item: WorkshopItem):
     downloadBarLength = 30
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
-        not SteamAPI.Validator.ValidSteamItemId(item.appid)
-        ):
+                not SteamAPI.Validator.ValidSteamItemId(item.appid)
+            ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
         )
