@@ -1,16 +1,14 @@
-import os
-import json
 
-from classes.workshopItemBase import WorkshopItemBase
-from classes.workshopItem import WorkshopItem
+from classes import WorkshopItemBase
+from classes import WorkshopItem
 
-from utils import logger, filemanager
+from utils import logger
 from api import SteamAPI
 
 
 class WorkshopCollection(WorkshopItemBase):
     localItems: list[WorkshopItem] = []
-    newItems: list[WorkshopItem] = []
+    fetchedItems: list[WorkshopItem] = []
 
     def __init__(self, id: str, appid: int = -1, name: str = "", localItems: list[WorkshopItem] = []) -> None:
         if (SteamAPI.Validator.ValidSteamItemId(id)):
@@ -20,12 +18,12 @@ class WorkshopCollection(WorkshopItemBase):
             )
             self.name = title
             self.appid = appid
-            self.newItems = newItems
+            self.fetchedItems = newItems
         else:
             if (len(localItems) > 0):
                 super().__init__(id, appid, name)
                 self.localItems = localItems
-                self.newItems = SteamAPI.GetLocalCollectionInfo(
+                self.fetchedItems = SteamAPI.GetLocalCollectionInfo(
                     self.localItems
                 )
             else:
@@ -48,7 +46,7 @@ class WorkshopCollection(WorkshopItemBase):
 
         if (appid is None):
             logger.LogError(
-                "Please specify appid for your collection!"
+                "You are specifying local collection, but no appid was found!"
             )
             return
 
@@ -61,9 +59,9 @@ class WorkshopCollection(WorkshopItemBase):
         if (name is None):
             name = "NotInCollection"
 
-        localItems: list[WorkshopItem] = []
-        ids: list[str] = []
-        names: list[str] = []
+        parsedItems: list[WorkshopItem] = []
+        parsedItemsIds: list[str] = []
+        parsedItemsNames: list[str] = []
         for jsonItem in jsonItems:
             wItem = WorkshopItem(
                 jsonItem.get("itemId"),
@@ -83,46 +81,57 @@ class WorkshopCollection(WorkshopItemBase):
                 )
                 continue
 
-            if (wItem.id in ids or wItem.name in names):
+            if (wItem.id in parsedItemsIds or wItem.name in parsedItemsNames):
                 dups = [
-                    x for x
+                    item for item
                     in jsonItems
-                    if x.id == wItem.id or x.name == wItem.name
+                    if item.get("id") == wItem.id or item.get("name") == wItem.name
                 ]
                 logger.LogWarning(
-                    "Possible duplicates:\n"
-                    f"{wItem}"
+                    f"Possible duplicates for {wItem}:\n"
                 )
                 for idx, dup in enumerate(dups):
-                    logger.LogWarning(f"    {idx}. - {dup}")
+                    logger.LogWarning(f"{logger.StartIndent()}{idx}. - {dup}")
 
-            ids.append(wItem.id)
-            names.append(wItem.name)
-            localItems.append(wItem)
+            parsedItemsIds.append(wItem.id)
+            parsedItemsNames.append(wItem.name)
+            parsedItems.append(wItem)
 
-        if (len(localItems) == 0):
+        if (len(parsedItems) == 0):
             logger.LogError(
                 "You are specifying local collection, but no items were parsed successfully!"
             )
             return
 
-        return cls(id, appid, name, localItems)
+        return cls(id, appid, name, parsedItems)
+
+    @staticmethod
+    def getItemsByName(items: list[WorkshopItem], name: str) -> list[WorkshopItem]:
+        if (not SteamAPI.Validator.ValidSteamItemId(id)):
+            raise Exception("Item id is not valid")
+
+        result = [item for item in items if item.name == name]
+        return result
+
+    @staticmethod
+    def getItemById(items: list[WorkshopItem], id: int) -> WorkshopItem:
+        if (not SteamAPI.Validator.ValidSteamItemId(id)):
+            raise Exception("Item id is not valid")
+
+        result = [item for item in items if item.id == id]
+        return result[0] if len(result) > 0 else None
+
+    @staticmethod
+    def getItemNames(items: list[WorkshopItem]):
+        return [item.name for item in items]
+
+    @staticmethod
+    def getItemIds(items: list[WorkshopItem]):
+        return [item.id for item in items]
 
     def json(self):
         '''Retuns dict with name, id, and app id.'''
         return {"collectionName": self.name, "collectionId": self.id, "appId": self.appid}
-
-    def saveAsJson(self, directory):
-        if (not filemanager.doesDirectoryExist(directory)):
-            filemanager.createDirectory(directory)
-
-        with open(f"{directory}/collection.json", "w") as file:
-            data = self.json()
-            data["items"] = [
-                item.json() for item
-                in self.newItems
-            ]
-            file.write(json.dumps(data))
 
     def __str__(self) -> str:
         return f"{{WorkshopCollection - name: {self.name} | id: {self.id} | appid: {self.appid} }}"

@@ -2,8 +2,10 @@ import os
 import shutil
 import io
 import zipfile
+import json
 
-from utils import logger
+from classes import WorkshopCollection
+from classes import WorkshopItem
 
 
 def doesDirectoryExist(path: str) -> bool:
@@ -18,7 +20,7 @@ def deleteAllDirectoryContents(path: str) -> None:
     if (not doesDirectoryExist(path)):
         raise Exception(f"Folder does not exist: {path}")
 
-    for root, dirs, files in os.walk('/path/to/folder'):
+    for root, dirs, files in os.walk(path):
         for f in files:
             os.unlink(os.path.join(root, f))
         for d in dirs:
@@ -60,3 +62,16 @@ def saveZipFile(directory: str, zipFileBytes: bytes):
 
     zipFile = zipfile.ZipFile(io.BytesIO(zipFileBytes))
     zipFile.extractall(directory)
+
+
+def saveCollectionAsJson(collection: WorkshopCollection, items: list[WorkshopItem], directory: str):
+    if (not doesDirectoryExist(directory)):
+        createDirectory(directory)
+
+    with open(f"{directory}/collection.json", "w") as file:
+        data = collection.json()
+        data["items"] = [
+            item.json() for item
+            in items
+        ]
+        file.write(json.dumps(data))
