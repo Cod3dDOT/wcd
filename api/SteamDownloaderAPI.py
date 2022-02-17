@@ -29,6 +29,7 @@ def StopDownload():
     global _ongoingDownloadSaveDirectory
 
     if IsDownloading():
+        logger.LogMessage("")
         logger.LogWarning(
             f"{logger.StartIndent()}Stopping download..."
         )
@@ -110,9 +111,9 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     )
 
     if (len(willBeUpdatedIds) == 0 and
-        len(willBeDeletedIds) == 0 and
-        len(willBeAddedIds) == 0 and
-        len(willBeDeletedFolders) == 0
+            len(willBeDeletedIds) == 0 and
+            len(willBeAddedIds) == 0 and
+            len(willBeDeletedFolders) == 0
         ):
         logger.LogError(
             f"{logger.StartIndent()}Collection has no items to change.\n"
@@ -396,12 +397,11 @@ def getSteamDownloaderUrl(item: WorkshopItem):
 
 
 def downloadItem(item: WorkshopItem):
-    '''Downloads item.'''
-
-    downloadBarLength = 30
+    '''Downloads an item'''
+    chunkSize = 1024
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
-        not SteamAPI.Validator.ValidSteamItemId(item.appid)
+            not SteamAPI.Validator.ValidSteamItemId(item.appid)
         ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
@@ -416,24 +416,21 @@ def downloadItem(item: WorkshopItem):
 
     with io.BytesIO() as memoryFile:
         downloadResponse = requests.get(zipFileUrl, stream=True)
-        totalLength = downloadResponse.headers.get('content-length')
-        if totalLength is None:
+        filesize = downloadResponse.headers.get('content-length')
+        if filesize is None:
             memoryFile.write(downloadResponse.content)
             logger.LogWarning(
-                f"{logger.Indent(2)}Can't track download progress. Downloading..."
+                f"{logger.Indent(2)}Can't track download progress. Downloading {filesize} bytes..."
             )
         else:
             print(
-                f"{logger.Indent(2)}Downloading [{' ' * downloadBarLength}]", end="\r"
+                f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, 0)}", end="\r"
             )
-            for chunk in downloadResponse.iter_content(1024):
+            for chunk in downloadResponse.iter_content(chunkSize):
                 memoryFile.write(chunk)
-                downloadBarDone = int(
-                    downloadBarLength *
-                    memoryFile.getbuffer().nbytes / int(totalLength)
-                )
+                fillPercentage = memoryFile.getbuffer().nbytes / int(filesize) * 100
                 print(
-                    f"{logger.Indent(2)}Downloading [{'=' * downloadBarDone}{' ' * (downloadBarLength-downloadBarDone)}]", end="\r"
+                    f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, fillPercentage)}", end="\r"
                 )
         logger.LogMessage("")
         memoryFile.seek(0)

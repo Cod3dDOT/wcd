@@ -4,6 +4,14 @@ import os
 os.system("")
 
 
+def ProgressBar(length: int, percentage: int):
+    filledBars = int(
+        length *
+        percentage / 100
+    )
+    return f"[{'=' * filledBars}{' ' * (length - filledBars)}]"
+
+
 def StartIndent():
     return " - "
 
