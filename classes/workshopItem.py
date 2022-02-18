@@ -2,7 +2,7 @@ from classes import WorkshopItemBase
 
 
 class WorkshopItem(WorkshopItemBase):
-    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: str = "") -> None:
+    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: int = -1) -> None:
         super().__init__(id, appid, name, lastUpdated)
 
     @classmethod

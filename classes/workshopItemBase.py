@@ -1,6 +1,8 @@
 import unicodedata
 import re
 
+from utils import AssertParameter
+
 
 def slugify(value, allow_unicode=False):
     """
@@ -26,51 +28,47 @@ class WorkshopItemBase:
     _appid: int = -1
     _lastupdated: str = ""
 
-    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: str = "") -> None:
+    def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: int = -1) -> None:
         self.id = id
         self.appid = appid
         self.name = name
         self.lastUpdated = lastUpdated
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self._id
 
     @id.setter
-    def id(self, value):
+    def id(self, value: int) -> None:
+        AssertParameter(value, int, "id.value")
         self._id = value
 
     @property
-    def appid(self):
+    def appid(self) -> int:
         return self._appid
 
     @appid.setter
-    def appid(self, value):
-        self._appid = int(value)
+    def appid(self, value: int) -> None:
+        AssertParameter(value, int, "appid.value")
+        self._appid = value
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @name.setter
-    def name(self, value):
+    def name(self, value: str) -> None:
+        AssertParameter(value, str, "name.value")
         self._name = slugify(value)
 
     @property
-    def lastUpdated(self):
+    def lastUpdated(self) -> int:
         return self._lastupdated
 
     @lastUpdated.setter
-    def lastUpdated(self, value):
+    def lastUpdated(self, value: int) -> None:
+        AssertParameter(value, int, "lastUpdated.value")
         self._lastupdated = value
-
-    @property
-    def version(self):
-        return self._version
-
-    @version.setter
-    def version(self, value):
-        self._version = value
 
     def __str__(self) -> str:
         return f"{{WorkshopItemBase - name: {self.name} | id: {self.id} | appid: {self.appid} | lastUpdated: {self.lastUpdated}}}"
