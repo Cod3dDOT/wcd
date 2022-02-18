@@ -1,4 +1,5 @@
 import json
+from zipfile import BadZipFile, ZipFile
 import requests
 import io
 import time
@@ -155,9 +156,9 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     )
 
     if (len(willBeUpdatedIds) == 0 and
-        len(willBeDeletedIds) == 0 and
-        len(willBeAddedIds) == 0 and
-        len(willBeDeletedFolders) == 0
+            len(willBeDeletedIds) == 0 and
+            len(willBeAddedIds) == 0 and
+            len(willBeDeletedFolders) == 0
         ):
         logger.LogError(
             f"{logger.StartIndent()}Collection has no items to change.\n"
@@ -240,18 +241,18 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
                 logger.LogMessage(f"{logger.Indent(2)}Deleting old folder...")
                 filemanager.deleteDirectory(fetchedItemDirectory)
 
+            downloadedData = downloadItem(fetchedItem)
+            if (downloadedData == None):
+                failedToUpdateIds.append(fetchedItem.id)
+                continue
+            logger.LogMessage(f"{logger.Indent(2)}Extracting...")
             try:
-                downloadedData = downloadItem(fetchedItem)
-                logger.LogMessage(f"{logger.Indent(2)}Extracting...")
                 filemanager.saveZipFile(fetchedItemDirectory, downloadedData)
-                # add only when downloaded withoout errors
                 _ongoingDownloadDownloadedItems.append(fetchedItem)
-            except Exception as exception:
+            except BadZipFile:
                 logger.LogError(
-                    f"{logger.Indent(1)}{logger.StartIndent()}Exception occured while trying to download item: \n"
-                    f"{logger.Indent(2)}{exception}"
-                )
-                failedToUpdateIds.append(localItem.id)
+                    "Error occured while trying to unzip this item")
+                failedToUpdateIds.append(fetchedItem.id)
 
     failedToAddIds: list[int] = []
     if len(willBeAddedIds) > 0:
@@ -270,16 +271,19 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
                 f"{fetchedItem.name}"
             )
 
+            downloadedData = downloadItem(fetchedItem)
+            if (downloadedData == None):
+                failedToAddIds.append(fetchedItem.id)
+                continue
+            if (filemanager.doesDirectoryExist(fetchedItemDirectory)):
+                filemanager.deleteDirectory(fetchedItemDirectory)
+            logger.LogMessage(f"{logger.Indent(2)}Extracting...")
             try:
-                downloadedData = downloadItem(fetchedItem)
-                logger.LogMessage(f"{logger.Indent(2)}Extracting...")
                 filemanager.saveZipFile(fetchedItemDirectory, downloadedData)
-                # add only when downloaded withoout errors
                 _ongoingDownloadDownloadedItems.append(fetchedItem)
-            except Exception as exception:
+            except BadZipFile:
                 logger.LogError(
-                    f"{logger.Indent(1)}{logger.StartIndent()}Exception occured while trying to download item: \n"
-                    f"{logger.Indent(2)}{exception}"
+                    "Error occured while trying to unzip this item"
                 )
                 failedToAddIds.append(fetchedItem.id)
 
@@ -322,15 +326,15 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
 def DownloadCollection(collection: WorkshopCollection, directory: str, overrideExistingDirectory: bool = False) -> None:
     '''Downloads all items in collection.\n
     WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
-    global _ongoingDownloadSaveDirectory
-    _ongoingDownloadSaveDirectory = f"{directory}/{collection.name}"
 
-    if (filemanager.doesDirectoryExist(_ongoingDownloadSaveDirectory)):
+    collectionDirectory = f"{directory}/{collection.name}"
+
+    if (filemanager.doesDirectoryExist(collectionDirectory)):
         if (overrideExistingDirectory):
-            filemanager.deleteDirectory(_ongoingDownloadSaveDirectory)
+            filemanager.deleteDirectory(collectionDirectory)
         else:
             logger.LogError(
-                f"Directory already exists: {_ongoingDownloadSaveDirectory}")
+                f"Directory already exists: {collectionDirectory}")
             return
 
     if (len(collection.fetchedItems) == 0):
@@ -357,6 +361,8 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
 
     global _ongoingDownload
     global _ongoingDownloadDownloadedItems
+    global _ongoingDownloadSaveDirectory
+    _ongoingDownloadSaveDirectory = collectionDirectory
     _ongoingDownload = collection
 
     logger.LogMessage(
@@ -370,23 +376,24 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
             f"{index}. "
             f"{item.name}"
         )
+
+        downloadedData = downloadItem(item)
+        if (downloadedData == None):
+            failedDownloadIds.append(item.id)
+            continue
+        itemDirectory = f"{_ongoingDownloadSaveDirectory}/{item.name}"
+        if (filemanager.doesDirectoryExist(itemDirectory)):
+            filemanager.deleteDirectory(itemDirectory)
+        logger.LogMessage(f"{logger.Indent(2)}Extracting...")
         try:
-            downloadedData = downloadItem(item)
-            itemDirectory = f"{_ongoingDownloadSaveDirectory}/{item.name}"
-            if (filemanager.doesDirectoryExist(itemDirectory)):
-                filemanager.deleteDirectory(itemDirectory)
-            print(f"{logger.Indent(2)}Extracting...")
             filemanager.saveZipFile(itemDirectory, downloadedData)
             _ongoingDownloadDownloadedItems.append(item)
-        except Exception as exception:
-            logger.LogError(
-                f"{logger.Indent(1)}{logger.StartIndent()}Exception occured while trying to download item: \n"
-                f"{logger.Indent(2)}{exception}"
-            )
+        except BadZipFile:
+            logger.LogError("Error occured while trying to unzip this item")
             failedDownloadIds.append(item.id)
 
     filemanager.saveCollectionAsJson(
-        "collection",
+        f"{_ongoingDownloadSaveDirectory}collection.json",
         _ongoingDownload,
         _ongoingDownloadDownloadedItems,
         _ongoingDownloadSaveDirectory,
@@ -448,7 +455,7 @@ def getSteamDownloaderUrl(item: WorkshopItem):
             storagePath = jsonStatusResponse["storagePath"]
             zipFileUrl = f"https://{storageHost}/prod//storage//{storagePath}?uuid={uuid}"
             return zipFileUrl
-    raise Exception(
+    raise TimeoutError(
         f"Could not get item ({item}) steamdownloader.io url: timeout reached"
     )
 
@@ -474,7 +481,7 @@ def downloadItem(item: WorkshopItem) -> bytes:
     chunkSize = 1024
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
-                not SteamAPI.Validator.ValidSteamItemId(item.appid)
+            not SteamAPI.Validator.ValidSteamItemId(item.appid)
             ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
@@ -482,9 +489,9 @@ def downloadItem(item: WorkshopItem) -> bytes:
 
     try:
         zipFileUrl = getSteamDownloaderUrl(item)
-    except:
+    except TimeoutError:
         logger.LogError(
-            f"{logger.Indent(2)}Error downloading. Please try ot download this item manually."
+            f"{logger.Indent(2)}Error occured while trying to download this item."
         )
         return None
 

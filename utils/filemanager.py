@@ -73,7 +73,7 @@ def saveZipFile(directory: str, zipFileBytes: bytes):
 
     if (doesDirectoryExist(directory)):
         raise Exception(f"Directory already exists: {directory}")
-
+    
     zipFile = zipfile.ZipFile(io.BytesIO(zipFileBytes))
     zipFile.extractall(directory)
 
