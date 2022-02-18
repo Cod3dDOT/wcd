@@ -13,24 +13,14 @@ class WorkshopCollection(WorkshopItemBase):
     def __init__(self, id: str, appid: int = -1, name: str = "", localItems: list[WorkshopItem] = []) -> None:
         if (SteamAPI.Validator.ValidSteamItemId(id)):
             super().__init__(id, appid, name)
-            title, appid, newItems = SteamAPI.GetWorkshopCollectionInfo(
-                self.id
-            )
-            self.name = title
-            self.appid = appid
-            self.fetchedItems = newItems
+        elif (len(localItems) > 0):
+            super().__init__(id, appid, name)
+            self.localItems = localItems
         else:
-            if (len(localItems) > 0):
-                super().__init__(id, appid, name)
-                self.localItems = localItems
-                self.fetchedItems = SteamAPI.GetLocalCollectionInfo(
-                    self.localItems
-                )
-            else:
-                raise Exception(
-                    "Could not create a collection.\n"
-                    f"Params: {id}, {appid}, {name}, {localItems}"
-                )
+            raise Exception(
+                "Can't create collection: \n"
+                f"id: {id}, appid: {appid}, name: {name}, len(localItems): {len(localItems)}"
+            )
 
     @classmethod
     def fromUrl(cls, url: str):
@@ -38,8 +28,8 @@ class WorkshopCollection(WorkshopItemBase):
         return cls(id)
 
     @classmethod
-    def fromJson(cls, jsonDict: str):
-        id = None
+    def fromJson(cls, jsonDict: dict):
+        id = -1
         appid = jsonDict.get("appId")
         name = jsonDict.get("collectionName")
         jsonItems = jsonDict.get("items")
@@ -48,13 +38,13 @@ class WorkshopCollection(WorkshopItemBase):
             logger.LogError(
                 "You are specifying local collection, but no appid was found!"
             )
-            return
+            return None
 
         if (jsonItems is None):
             logger.LogError(
                 "You are specifying local collection, but no items were found!"
             )
-            return
+            return None
 
         if (name is None):
             name = "NotInCollection"
@@ -101,15 +91,28 @@ class WorkshopCollection(WorkshopItemBase):
             logger.LogError(
                 "You are specifying local collection, but no items were parsed successfully!"
             )
-            return
+            return None
 
         return cls(id, appid, name, parsedItems)
 
+    def FetchNewItems(self) -> bool:
+        if (SteamAPI.Validator.ValidSteamItemId(self.id)):
+            title, appid, fetchedItems = SteamAPI.GetWorkshopCollectionInfo(
+                self.id
+            )
+            self.name = title
+            self.appid = appid
+            self.fetchedItems = fetchedItems
+            return True
+        elif (len(self.localItems) > 0):
+            self.fetchedItems = SteamAPI.GetLocalCollectionInfo(
+                self.localItems
+            )
+            return True
+        return False
+
     @staticmethod
     def getItemsByName(items: list[WorkshopItem], name: str) -> list[WorkshopItem]:
-        if (not SteamAPI.Validator.ValidSteamItemId(id)):
-            raise Exception("Item id is not valid")
-
         result = [item for item in items if item.name == name]
         return result
 

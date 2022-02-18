@@ -6,29 +6,27 @@ import json
 
 from classes import WorkshopCollection
 from api import SteamDownloaderAPI
+from utils import logger
 
 
 def parseArgs():
     parser = argparse.ArgumentParser()
 
-    group = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
 
-    group.add_argument("-curl",
-                       "--collectionUrl",
-                       type=str,
-                       help="Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*")
+    source.add_argument("-curl", "--collectionUrl",
+                        type=str,
+                        help="Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*")
 
-    group.add_argument("-cjson",
-                       "--collectionJson",
-                       type=str,
-                       help="Generated collection.json file from this script.")
+    source.add_argument("-cjson", "--collectionJson",
+                        type=str,
+                        help="Generated collection.json file from this script.")
 
-    parser.add_argument("-o",
-                        "--output",
+    parser.add_argument("-o", "--output",
                         type=str,
                         required=False,
                         default="downloads/",
-                        help="Output directory. A folder with collection name will be saved here.")
+                        help="Output directory. A folder with collection name will be saved here. Defaults to /downloads/")
 
     parser.add_argument("-f", "--force",
                         required=False,
@@ -58,7 +56,8 @@ def readJsonFile(jsonPath):
 
 
 def main():
-    OutputDirectory, ForceRedownload, SteamCollectionUrl, JsonFilePath, CleanUp = parseArgs()
+    OutputDirectory, ForceRedownload, \
+        SteamCollectionUrl, JsonFilePath, CleanUp = parseArgs()
 
     wCollection = None
     if (SteamCollectionUrl):
@@ -68,7 +67,16 @@ def main():
         jsonDict = readJsonFile(JsonFilePath)
         wCollection = WorkshopCollection.fromJson(jsonDict)
 
+    if (not wCollection):
+        logger.LogError("Could not create collection.")
+        return
+
     try:
+        result = wCollection.FetchNewItems()
+        if (not result):
+            logger.LogError(
+                f"Could not fetch any items for collection: {wCollection}"
+            )
         if (SteamCollectionUrl or ForceRedownload):
             SteamDownloaderAPI.DownloadCollection(
                 wCollection, OutputDirectory, True
@@ -81,5 +89,5 @@ def main():
         SteamDownloaderAPI.StopDownload()
 
 
-if __name__ == "__main__":
+if (__name__ == "__main__"):
     main()

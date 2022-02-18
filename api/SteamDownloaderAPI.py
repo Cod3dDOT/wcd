@@ -6,7 +6,7 @@ import time
 from classes import WorkshopCollection
 from classes import WorkshopItem
 
-from utils import filemanager, logger
+from utils import AssertParameter, filemanager, logger
 from api import SteamAPI
 
 
@@ -16,19 +16,27 @@ _ongoingDownloadDownloadedItems: list[WorkshopItem] = []
 
 
 def IsDownloading() -> bool:
+    '''Returns True of currently downloading anything'''
     return _ongoingDownload != None
 
 
 def OngoingDownload() -> WorkshopCollection:
+    '''Returns collection thta is currently downloaded'''
     return _ongoingDownload
 
 
-def StopDownload():
+def DownloadedItems() -> list[WorkshopItem]:
+    '''Returns items already downloaded'''
+    return _ongoingDownloadDownloadedItems
+
+
+def StopDownload() -> None:
+    '''Stops the download'''
     global _ongoingDownload
     global _ongoingDownloadDownloadedItems
     global _ongoingDownloadSaveDirectory
 
-    if IsDownloading():
+    if (IsDownloading()):
         logger.LogMessage("")
         logger.LogWarning(
             f"{logger.StartIndent()}Stopping download..."
@@ -40,12 +48,15 @@ def StopDownload():
         # add not downloaded items with lastUpdated = 0,
         # so thay will be "updated" the next time.
         for item in _ongoingDownload.fetchedItems:
-            if item.id not in downloadedIds:
+            if (item.id not in downloadedIds):
                 item.lastUpdated = 0
                 _ongoingDownloadDownloadedItems.append(item)
 
         filemanager.saveCollectionAsJson(
-            _ongoingDownload, _ongoingDownloadDownloadedItems, _ongoingDownloadSaveDirectory
+            f"{_ongoingDownloadSaveDirectory}/collection.json",
+            _ongoingDownload,
+            _ongoingDownloadDownloadedItems,
+            True
         )
 
         _ongoingDownload = None
@@ -56,10 +67,42 @@ def StopDownload():
 def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldItems: bool = True, removeDeletedItems: bool = True) -> None:
     '''Checks all items in collection, and updates/adds/removes them as needed\n
     WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
-    global _ongoingDownloadSaveDirectory
-    _ongoingDownloadSaveDirectory = f"{directory}/{collection.name}"
-    global _ongoingDownload
-    _ongoingDownload = collection
+
+    if (not isinstance(collection, WorkshopCollection)):
+        raise Exception(
+            f"collection must be of type {WorkshopCollection}\n"
+            f"collection: {collection}, type: {type(collection)}"
+        )
+
+    if (not isinstance(directory, str)):
+        raise Exception(
+            f"directory must be of type {str}\n"
+            f"directory: {directory}, type: {type(directory)}"
+        )
+
+    if (not collection.name):
+        raise Exception("Cant update collection not knowing its name")
+
+    hasValidAppId = SteamAPI.Validator.ValidSteamItemId(collection.appid)
+    if (not hasValidAppId):
+        logger.LogError(
+            f"{logger.StartIndent()}Can't download collection without knowing its id or its app id.\n"
+            f"{logger.Indent(1)}Call SteamApi.getCollectionDetails() first!\n"
+            f"{logger.Indent(1)}Called with collection: {collection}"
+        )
+        return
+
+    if (len(collection.fetchedItems) == 0):
+        queryResult = logger.YesOrNoQuery(
+            "There are no fetched items. This means ALL items will be removed!\nAre you sure you have called WorkshopCollection.FetchNewItems()?",
+            False,
+            "yes, continue",
+            "no, abort!"
+        )
+        if (not queryResult):
+            return
+
+    collectionDirectory = f"{directory}/{collection.name}"
 
     # Fetched items info
     fetchedItemIdsList: list[int] = WorkshopCollection.getItemIds(
@@ -90,7 +133,8 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     willBeUpdatedIds: list[int] = list(
         item.id for item
         in collection.localItems
-        if item.lastUpdated != collection.fetchedItems[
+        if item.id in fetchedItemIdsList and
+        item.lastUpdated != collection.fetchedItems[
             fetchedItemIdsList.index(item.id)
         ].lastUpdated
     )
@@ -106,27 +150,17 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     # and delete all folders that are not in names list (folders are named using item names)
     willBeDeletedFolders: list[str] = list(
         dir for dir
-        in filemanager.listDirsInDirectory(_ongoingDownloadSaveDirectory)
+        in filemanager.listDirsInDirectory(collectionDirectory)
         if (dir not in fetchedItemsNameList)
     )
 
     if (len(willBeUpdatedIds) == 0 and
-            len(willBeDeletedIds) == 0 and
-            len(willBeAddedIds) == 0 and
-            len(willBeDeletedFolders) == 0
+        len(willBeDeletedIds) == 0 and
+        len(willBeAddedIds) == 0 and
+        len(willBeDeletedFolders) == 0
         ):
         logger.LogError(
             f"{logger.StartIndent()}Collection has no items to change.\n"
-            f"{logger.Indent(1)}Called with collection: {collection}"
-        )
-        return
-
-    hasValidAppId = SteamAPI.Validator.ValidSteamItemId(collection.appid)
-
-    if (not hasValidAppId):
-        logger.LogError(
-            f"{logger.StartIndent()}Can't download collection without knowing its id or its app id.\n"
-            f"{logger.Indent(1)}Call SteamApi.getCollectionDetails() first!\n"
             f"{logger.Indent(1)}Called with collection: {collection}"
         )
         return
@@ -135,6 +169,10 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
         f"{logger.StartIndent()}Updating collection: {collection.name}"
     )
 
+    global _ongoingDownloadSaveDirectory
+    _ongoingDownloadSaveDirectory = collectionDirectory
+    global _ongoingDownload
+    _ongoingDownload = collection
     global _ongoingDownloadDownloadedItems
     _ongoingDownloadDownloadedItems += [
         item for item
@@ -257,8 +295,21 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
             _ongoingDownloadDownloadedItems.append(localItem)
 
     filemanager.saveCollectionAsJson(
-        _ongoingDownload, _ongoingDownloadDownloadedItems, _ongoingDownloadSaveDirectory
+        f"{_ongoingDownloadSaveDirectory}/collection.json",
+        _ongoingDownload,
+        _ongoingDownloadDownloadedItems,
+        True
     )
+    filemanager.saveCollectionAsJson(
+        f"{_ongoingDownloadSaveDirectory}/collection_backup.json",
+        _ongoingDownload,
+        _ongoingDownload.localItems,
+        True
+    )
+
+    _ongoingDownload = None
+    _ongoingDownloadSaveDirectory = None
+    _ongoingDownloadDownloadedItems = []
 
     logger.LogSuccess(
         f"{logger.StartIndent()}Updated collection: {collection.name}.\n"
@@ -269,12 +320,12 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
 
 
 def DownloadCollection(collection: WorkshopCollection, directory: str, overrideExistingDirectory: bool = False) -> None:
-    '''Downloads all mods in collection.\n
+    '''Downloads all items in collection.\n
     WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
     global _ongoingDownloadSaveDirectory
     _ongoingDownloadSaveDirectory = f"{directory}/{collection.name}"
 
-    if filemanager.doesDirectoryExist(_ongoingDownloadSaveDirectory):
+    if (filemanager.doesDirectoryExist(_ongoingDownloadSaveDirectory)):
         if (overrideExistingDirectory):
             filemanager.deleteDirectory(_ongoingDownloadSaveDirectory)
         else:
@@ -335,8 +386,22 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
             failedDownloadIds.append(item.id)
 
     filemanager.saveCollectionAsJson(
-        _ongoingDownload, _ongoingDownloadDownloadedItems, _ongoingDownloadSaveDirectory
+        "collection",
+        _ongoingDownload,
+        _ongoingDownloadDownloadedItems,
+        _ongoingDownloadSaveDirectory,
+        True
     )
+    filemanager.saveCollectionAsJson(
+        f"{_ongoingDownloadSaveDirectory}/collection_backup.json",
+        _ongoingDownload,
+        _ongoingDownload.localItems,
+        True
+    )
+
+    _ongoingDownload = None
+    _ongoingDownloadSaveDirectory = None
+    _ongoingDownloadDownloadedItems = []
 
     logger.LogSuccess(
         f"Downloaded collection: {collection.name}\n"
@@ -345,6 +410,11 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
 
 
 def getSteamDownloaderUrl(item: WorkshopItem):
+    '''Returns steamdownloader.io url for item'''
+    AssertParameter(item, WorkshopItem, "item")
+    if (not SteamAPI.Validator.ValidSteamItemId(item.id)):
+        raise ValueError(f"item's ({item}) id is not valid")
+
     requestUrl = "https://node03.steamworkshopdownloader.io/prod/api/download/request"
     requestData = {
         "publishedFileId": item.id,
@@ -378,6 +448,9 @@ def getSteamDownloaderUrl(item: WorkshopItem):
             storagePath = jsonStatusResponse["storagePath"]
             zipFileUrl = f"https://{storageHost}/prod//storage//{storagePath}?uuid={uuid}"
             return zipFileUrl
+    raise Exception(
+        f"Could not get item ({item}) steamdownloader.io url: timeout reached"
+    )
 
 
 # def getSteamDownloaderCachedUrl(item: WorkshopItem):
@@ -396,32 +469,33 @@ def getSteamDownloaderUrl(item: WorkshopItem):
 #     return zipFileUrl
 
 
-def downloadItem(item: WorkshopItem):
+def downloadItem(item: WorkshopItem) -> bytes:
     '''Downloads an item'''
     chunkSize = 1024
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
-            not SteamAPI.Validator.ValidSteamItemId(item.appid)
-        ):
+                not SteamAPI.Validator.ValidSteamItemId(item.appid)
+            ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
         )
 
-    zipFileUrl = getSteamDownloaderUrl(item)
-    if (not zipFileUrl):
+    try:
+        zipFileUrl = getSteamDownloaderUrl(item)
+    except:
         logger.LogError(
             f"{logger.Indent(2)}Error downloading. Please try ot download this item manually."
         )
-        return
+        return None
 
     with io.BytesIO() as memoryFile:
         downloadResponse = requests.get(zipFileUrl, stream=True)
         filesize = downloadResponse.headers.get('content-length')
         if filesize is None:
-            memoryFile.write(downloadResponse.content)
             logger.LogWarning(
                 f"{logger.Indent(2)}Can't track download progress. Downloading {filesize} bytes..."
             )
+            memoryFile.write(downloadResponse.content)
         else:
             print(
                 f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, 0)}", end="\r"
@@ -432,6 +506,6 @@ def downloadItem(item: WorkshopItem):
                 print(
                     f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, fillPercentage)}", end="\r"
                 )
-        logger.LogMessage("")
+            logger.LogMessage("")
         memoryFile.seek(0)
         return memoryFile.read()

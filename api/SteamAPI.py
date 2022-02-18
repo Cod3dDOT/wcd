@@ -15,15 +15,14 @@ class Validator:
     def ValidSteamItemUrl(url: str) -> bool:
         '''Checks if steam item url is valid'''
         regexString = "(?:https?:\/\/)?steamcommunity\.com\/sharedfiles\/filedetails\/(?:\?id=)[0-9]+"
-        if not isinstance(url, str):
+        if (not isinstance(url, str)):
             return False
         return False if re.match(regexString, url) is None else True
 
+    @staticmethod
     def ValidSteamItemId(id: int) -> bool:
         '''Checks if steam item id is valid'''
-        if not isinstance(id, int):
-            return False
-        return True
+        return isinstance(id, int) and id > 0
 
 
 class Converter:
@@ -31,10 +30,10 @@ class Converter:
     def IdFromUrl(url: str) -> int:
         '''Returns id from steam url.'''
         if (not Validator.ValidSteamItemUrl(url)):
-            return
+            return None
         id = int(url.split("?id=")[1])
         if (not Validator.ValidSteamItemId(id)):
-            return
+            return None
         return id
 
     @staticmethod
@@ -157,7 +156,7 @@ def GetWorkshopCollectionInfo(collectionId: str) -> tuple[str, int, list[Worksho
     collectionItemsIdList = [
         int(item["publishedfileid"]) for item
         in collectionDetails["children"]
-        if item["filetype"] == 0
+        if (item["filetype"] == 0)
     ]
 
     UpdatedItemsInfo = GetItemsInfo(
