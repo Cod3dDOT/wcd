@@ -1,4 +1,5 @@
 
+from typing import Optional
 from classes import WorkshopItemBase
 from classes import WorkshopItem
 
@@ -6,18 +7,22 @@ from utils import logger
 from api import SteamAPI
 
 
+class WorkshopCollectionException(Exception):
+    pass
+
+
 class WorkshopCollection(WorkshopItemBase):
     localItems: list[WorkshopItem] = []
     fetchedItems: list[WorkshopItem] = []
 
-    def __init__(self, id: str, appid: int = -1, name: str = "", localItems: list[WorkshopItem] = []) -> None:
+    def __init__(self, id: int, appid: int = -1, name: str = "", localItems: list[WorkshopItem] = []) -> None:
         if (SteamAPI.Validator.ValidSteamItemId(id)):
             super().__init__(id, appid, name)
         elif (len(localItems) > 0):
             super().__init__(id, appid, name)
             self.localItems = localItems
         else:
-            raise Exception(
+            raise WorkshopCollectionException(
                 "Can't create collection: \n"
                 f"id: {id}, appid: {appid}, name: {name}, len(localItems): {len(localItems)}"
             )
@@ -50,7 +55,7 @@ class WorkshopCollection(WorkshopItemBase):
             name = "NotInCollection"
 
         parsedItems: list[WorkshopItem] = []
-        parsedItemsIds: list[str] = []
+        parsedItemsIds: list[int] = []
         parsedItemsNames: list[str] = []
         for jsonItem in jsonItems:
             wItem = WorkshopItem(
@@ -95,21 +100,21 @@ class WorkshopCollection(WorkshopItemBase):
 
         return cls(id, appid, name, parsedItems)
 
-    def FetchNewItems(self) -> bool:
+    def FetchNewItems(self) -> None:
         if (SteamAPI.Validator.ValidSteamItemId(self.id)):
-            title, appid, fetchedItems = SteamAPI.GetWorkshopCollectionInfo(
-                self.id
-            )
-            self.name = title
-            self.appid = appid
-            self.fetchedItems = fetchedItems
-            return True
+            try:
+                title, appid, fetchedItems = SteamAPI.GetWorkshopCollectionInfo(
+                    self.id
+                )
+                self.name = title
+                self.appid = appid
+                self.fetchedItems = fetchedItems
+            except SteamAPI.SteamAPIException:
+                raise WorkshopCollectionException("Collection does not exist.")
         elif (len(self.localItems) > 0):
             self.fetchedItems = SteamAPI.GetLocalCollectionInfo(
                 self.localItems
             )
-            return True
-        return False
 
     @staticmethod
     def getItemsByName(items: list[WorkshopItem], name: str) -> list[WorkshopItem]:
@@ -117,7 +122,7 @@ class WorkshopCollection(WorkshopItemBase):
         return result
 
     @staticmethod
-    def getItemById(items: list[WorkshopItem], id: int) -> WorkshopItem:
+    def getItemById(items: list[WorkshopItem], id: int) -> Optional[WorkshopItem]:
         if (not SteamAPI.Validator.ValidSteamItemId(id)):
             raise Exception("Item id is not valid")
 

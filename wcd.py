@@ -5,6 +5,7 @@ import os
 import json
 
 from classes import WorkshopCollection
+from classes.workshopCollection import WorkshopCollectionException
 from api import SteamDownloaderAPI
 from utils import logger
 
@@ -16,22 +17,25 @@ def parseArgs():
 
     source.add_argument("-curl", "--collectionUrl",
                         type=str,
-                        help="Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*")
+                        help="Steam collection url. "
+                        "Pattern: https://steamcommunity.com/(sharedfiles | workshop)/filedetails/?id=*")
 
     source.add_argument("-cjson", "--collectionJson",
                         type=str,
-                        help="Generated collection.json file from this script.")
+                        help="Generated collection.json")
 
     parser.add_argument("-o", "--output",
                         type=str,
                         required=False,
                         default="downloads/",
-                        help="Output directory. A folder with collection name will be saved here. Defaults to /downloads/")
+                        help="Output directory. "
+                        "A folder with collection name will be saved here. "
+                        "Defaults to /downloads/")
 
     parser.add_argument("-f", "--force",
                         required=False,
                         action="store_true",
-                        help="Force redownload everything. (only when updating)")
+                        help="Force redownload. (only when updating)")
 
     parser.add_argument("-c", "--cleanUp",
                         required=False,
@@ -61,22 +65,31 @@ def main():
 
     wCollection = None
     if (SteamCollectionUrl):
-        wCollection = WorkshopCollection.fromUrl(SteamCollectionUrl)
+        try:
+            wCollection = WorkshopCollection.fromUrl(SteamCollectionUrl)
+        except WorkshopCollectionException:
+            logger.LogError(
+                "Could not create collection."
+            )
+            return
 
     if (JsonFilePath):
         jsonDict = readJsonFile(JsonFilePath)
-        wCollection = WorkshopCollection.fromJson(jsonDict)
-
-    if (not wCollection):
-        logger.LogError("Could not create collection.")
-        return
+        try:
+            wCollection = WorkshopCollection.fromJson(jsonDict)
+        except WorkshopCollectionException:
+            logger.LogError(
+                "Could not create collection."
+            )
+            return
 
     try:
-        result = wCollection.FetchNewItems()
-        if (not result):
-            logger.LogError(
-                f"Could not fetch any items for collection: {wCollection}"
-            )
+        try:
+            wCollection.FetchNewItems()
+        except WorkshopCollectionException as exception:
+            logger.LogError(exception)
+            return
+
         if (SteamCollectionUrl or ForceRedownload):
             SteamDownloaderAPI.DownloadCollection(
                 wCollection, OutputDirectory, True

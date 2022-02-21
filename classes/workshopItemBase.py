@@ -26,7 +26,7 @@ class WorkshopItemBase:
     _name: str = ""
     _id: int = -1
     _appid: int = -1
-    _lastupdated: str = ""
+    _lastupdated: int = -1
 
     def __init__(self, id: int, appid: int = -1, name: str = "", lastUpdated: int = -1) -> None:
         self.id = id
