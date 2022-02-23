@@ -1,4 +1,4 @@
-# 1.1.4-2
+# 1.1.4
 
 import argparse
 import os
@@ -7,7 +7,7 @@ import json
 from classes import WorkshopCollection
 from classes.workshopCollection import WorkshopCollectionException
 from api import SteamDownloaderAPI
-from utils import logger
+from utils import logger, filemanager
 
 
 def parseArgs():
@@ -40,7 +40,7 @@ def parseArgs():
     parser.add_argument("-c", "--cleanUp",
                         required=False,
                         action="store_true",
-                        help="Clean up removed items. (only when updating)")
+                        help="Remove items, which were are no longer on the steam workshop. (only when updating)")
 
     args = parser.parse_args()
 
@@ -74,7 +74,13 @@ def main():
             return
 
     if (JsonFilePath):
-        jsonDict = readJsonFile(JsonFilePath)
+        if (filemanager.doesFileExist(JsonFilePath)):
+            jsonDict = readJsonFile(JsonFilePath)
+        else:
+            logger.LogError(
+                "Could not find collection.json file"
+            )
+            return
         try:
             wCollection = WorkshopCollection.fromJson(jsonDict)
         except WorkshopCollectionException:

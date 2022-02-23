@@ -42,10 +42,6 @@ def onDownloadStopped() -> None:
     _ongoingDownloadSaveDirectory = ""
     _ongoingDownloadDownloadedItems = []
 
-    logger.LogMessage(
-        f"{logger.StartIndent()}Download stopped"
-    )
-
 
 def StopDownload() -> None:
     '''Stops the download'''
@@ -77,11 +73,15 @@ def StopDownload() -> None:
         )
 
         onDownloadStopped()
+        logger.LogMessage(
+            f"{logger.StartIndent()}Download stopped"
+        )
 
 
 def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldItems: bool = True, removeDeletedItems: bool = True) -> None:
     '''Checks all items in collection, and updates/adds/removes them as needed\n
-    WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
+    WARNING: collections maybe very big,
+    so this command may generate a lot of internet traffic and take a while.'''
 
     if (not isinstance(collection, WorkshopCollection)):
         raise Exception(
@@ -118,6 +118,8 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
             return
 
     collectionDirectory = f"{directory}/{collection.name}"
+    if (not filemanager.doesDirectoryExist(collectionDirectory)):
+        filemanager.createDirectory(collectionDirectory)
 
     # Fetched items info
     fetchedItemIdsList: list[int] = WorkshopCollection.getItemIds(
@@ -162,7 +164,8 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     # These are different from line 50.
     # If you manually remove items from collection.json,
     # then we do not longer have any info about them. So we scan for all folders,
-    # and delete all folders that are not in names list (folders are named using item names)
+    # and delete all folders that are not in names list
+    # (folders are named using item names)
     willBeDeletedFolders: list[str] = list(
         dir for dir
         in filemanager.listDirsInDirectory(collectionDirectory)
@@ -170,9 +173,9 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     )
 
     if (len(willBeUpdatedIds) == 0 and
-        len(willBeDeletedIdsSet) == 0 and
-        len(willBeAddedIds) == 0 and
-        len(willBeDeletedFolders) == 0
+            len(willBeDeletedIdsSet) == 0 and
+            len(willBeAddedIds) == 0 and
+            len(willBeDeletedFolders) == 0
         ):
         logger.LogError(
             f"{logger.StartIndent()}Collection has no items to change.\n"
@@ -363,7 +366,7 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     onDownloadStopped()
     logger.LogSuccess(
         f"{logger.StartIndent()}Updated collection: {collection.name}.\n"
-        f"{logger.Indent(1)}Added items: {len(willBeAddedIds) - len(failedToAddIds)}/{len(willBeAddedIds)}\n"
+        f"{logger.Indent(1)}New items:     {len(willBeAddedIds) - len(failedToAddIds)}/{len(willBeAddedIds)}\n"
         f"{logger.Indent(1)}Updated items: {len(willBeUpdatedIds) - len(failedToUpdateIds)}/{len(willBeUpdatedIds)}\n"
         f"{logger.Indent(1)}Removed items: {len(willBeDeletedIdsSet) + len(willBeDeletedFolders)}"
     )
@@ -461,7 +464,7 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
         )
 
     filemanager.saveCollectionAsJson(
-        f"{_ongoingDownloadSaveDirectory}collection.json",
+        f"{_ongoingDownloadSaveDirectory}/collection.json",
         _ongoingDownload,
         _ongoingDownloadDownloadedItems,
         True
@@ -530,7 +533,7 @@ def downloadItem(item: WorkshopItem) -> bytes:
     chunkSize = 1024
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
-        not SteamAPI.Validator.ValidSteamItemId(item.appid)
+            not SteamAPI.Validator.ValidSteamItemId(item.appid)
         ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
