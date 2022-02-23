@@ -393,7 +393,7 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
             failedDownloadIds.append(item.id)
 
     filemanager.saveCollectionAsJson(
-        f"{_ongoingDownloadSaveDirectory}collection.json",
+        f"{_ongoingDownloadSaveDirectory}/collection.json",
         _ongoingDownload,
         _ongoingDownloadDownloadedItems,
         _ongoingDownloadSaveDirectory,
