@@ -14,13 +14,22 @@ class Validator:
     @staticmethod
     def ValidSteamItemUrl(url: str) -> bool:
         '''Checks if steam item url is valid'''
-        regexString1 = "(?:https?:\/\/)?steamcommunity\.com\/sharedfiles\/filedetails\/(?:\?id=)[0-9]+"
-        regexString2 = "(?:https?:\/\/)?steamcommunity\.com\/workshop\/filedetails\/(?:\?id=)[0-9]+"
         if (not isinstance(url, str)):
             return False
 
-        matched = ((re.match(regexString1, url) is not None) or
-                   (re.match(regexString2, url) is not None))
+        regexStrings = [
+            "(?:https?:\/\/)?steamcommunity\.com\/sharedfiles\/filedetails\/(?:\?id=)[0-9]+",
+            "(?:https?:\/\/)?steamcommunity\.com\/workshop\/filedetails\/(?:\?id=)[0-9]+"
+        ]
+
+        matched = True if len(
+            [
+                string for string
+                in regexStrings
+                if re.match(string, url)
+            ]
+        ) > 0 else False
+
         return matched
 
     @ staticmethod
@@ -41,11 +50,11 @@ class Converter:
         return id
 
     @ staticmethod
-    def UrlFromId(id):
+    def UrlFromId(id: int) -> str:
         '''Returns steam url from id.'''
         if (not Validator.ValidSteamItemId(id)):
-            return
-        return f"https://steamcommunity.com/workshop/filedetails/?id={id}"
+            raise SteamAPIException("Id is not valid")
+        return f"https://steamcommunity.com/sharedfiles/filedetails/?id={id}"
 
 
 class ISteamRemoteStorage:
@@ -53,7 +62,9 @@ class ISteamRemoteStorage:
     def GetCollectionDetails(collectionId: int) -> dict:
         '''Returns id from steam url.'''
         if (not Validator.ValidSteamItemId(collectionId)):
-            raise SteamAPIException("Collection id is not valid.")
+            raise SteamAPIException(
+                f"Collection id is not valid: {collectionId}"
+            )
 
         apiString = "http://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1"
 

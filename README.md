@@ -21,6 +21,14 @@ What the script does:
 Yes, you can modify or create your own collection.json files, and then use them to download / update.
 The script will download any items, which are specified in collection.json file.
 
+#### Color coding
+- ![#f03c15](https://via.placeholder.com/15/f03c15/000000?text=+) `#Failed to download/update`
+- ![#c5f015](https://via.placeholder.com/15/c5f015/000000?text=+) `#Downloaded/updated successfully`
+
+Errors:
+- timeout reached: steamdownloader.io did not return zip file in time.
+- bad zip file: downloaded zip file is corrupted. Wait until the script finishes, then restart to redownload failed items.
+
 ### Options
 `python3 wcd.py -h`:
 ```
@@ -29,11 +37,14 @@ usage: wcd.py [-h] (-curl COLLECTIONURL | -cjson COLLECTIONJSON) [-o OUTPUT] [-f
 optional arguments:
   -h, --help            show this help message and exit
   -curl COLLECTIONURL, --collectionUrl COLLECTIONURL
-                        Steam collection url. Pattern: https://steamcommunity.com/sharedfiles/filedetails/?id=*
+                        Steam collection url. Pattern:
+                        https://steamcommunity.com/(sharedfiles | workshop)/filedetails/?id=*  
   -cjson COLLECTIONJSON, --collectionJson COLLECTIONJSON
-                        Generated collection.json file from this script.
+                        Generated collection.json
   -o OUTPUT, --output OUTPUT
-                        Output directory. A folder with collection name will be saved here.
-  -f, --force           Force redownload everything.
-  -c, --cleanUp         Clean up removed items.
+                        Output directory. A folder with collection name will be saved here.    
+                        Defaults to /downloads/
+  -f, --force           Force redownload. (only when updating)
+  -c, --cleanUp         Remove items, which were are no longer on the steam workshop. (only    
+                        when updating)
 ```
