@@ -1,19 +1,45 @@
 import json
-from zipfile import BadZipFile, ZipFile
+from typing import Optional
+from zipfile import BadZipFile
 import requests
 import io
 import time
+import random
 
 from classes import WorkshopCollection
 from classes import WorkshopItem
 
 from utils import AssertParameter, filemanager, logger
+from utils.logger import Indent, Spinner
 from api import SteamAPI
 
 
 _ongoingDownload: WorkshopCollection = None
-_ongoingDownloadSaveDirectory: str = None
+_ongoingDownloadSaveDirectory: str = ""
 _ongoingDownloadDownloadedItems: list[WorkshopItem] = []
+
+class Settings:
+    # taken from main.js on steamworkshopdownloader.io
+    nodeRange: list[int] = [4, 8]
+    nodeId: int = random.randint(nodeRange[0], nodeRange[1])
+    
+    def getEndpointUrl():
+        return f"https://node0{Settings.getNodeId()}.steamworkshopdownloader.io/prod/api/download/"
+
+    def getNodeId():
+        return Settings.nodeId
+    
+    def setNodeId(nodeId: int):
+        AssertParameter(nodeId, (int), "nodeId")
+        if (nodeId != Settings.nodeRange):
+            raise ValueError(f"nodeId not in node range: {nodeId} not in {Settings.nodeRange}")
+        Settings.nodeId = nodeId
+
+    def getRequestUrl():
+        return Settings.getEndpointUrl() + "request"
+
+    def getStatusUrl():
+        return Settings.getEndpointUrl() + "status"
 
 
 def IsDownloading() -> bool:
@@ -21,7 +47,7 @@ def IsDownloading() -> bool:
     return _ongoingDownload != None
 
 
-def OngoingDownload() -> WorkshopCollection:
+def OngoingDownload() -> Optional[WorkshopCollection]:
     '''Returns collection thta is currently downloaded'''
     return _ongoingDownload
 
@@ -29,6 +55,16 @@ def OngoingDownload() -> WorkshopCollection:
 def DownloadedItems() -> list[WorkshopItem]:
     '''Returns items already downloaded'''
     return _ongoingDownloadDownloadedItems
+
+
+def onDownloadStopped() -> None:
+    global _ongoingDownload
+    global _ongoingDownloadDownloadedItems
+    global _ongoingDownloadSaveDirectory
+
+    _ongoingDownload = None
+    _ongoingDownloadSaveDirectory = ""
+    _ongoingDownloadDownloadedItems = []
 
 
 def StopDownload() -> None:
@@ -40,7 +76,7 @@ def StopDownload() -> None:
     if (IsDownloading()):
         logger.LogMessage("")
         logger.LogWarning(
-            f"{logger.StartIndent()}Stopping download..."
+            f"\n{logger.StartIndent()}Stopping download..."
         )
 
         downloadedIds = WorkshopCollection.getItemIds(
@@ -60,14 +96,16 @@ def StopDownload() -> None:
             True
         )
 
-        _ongoingDownload = None
-        _ongoingDownloadSaveDirectory = None
-        _ongoingDownloadDownloadedItems = []
+        onDownloadStopped()
+        logger.LogMessage(
+            f"{logger.StartIndent()}Download stopped"
+        )
 
 
 def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldItems: bool = True, removeDeletedItems: bool = True) -> None:
     '''Checks all items in collection, and updates/adds/removes them as needed\n
-    WARNING: collections maybe very big, so this command may generate a lot of internet traffic and take a while.'''
+    WARNING: collections maybe very big,
+    so this command may generate a lot of internet traffic and take a while.'''
 
     if (not isinstance(collection, WorkshopCollection)):
         raise Exception(
@@ -104,6 +142,8 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
             return
 
     collectionDirectory = f"{directory}/{collection.name}"
+    if (not filemanager.doesDirectoryExist(collectionDirectory)):
+        filemanager.createDirectory(collectionDirectory)
 
     # Fetched items info
     fetchedItemIdsList: list[int] = WorkshopCollection.getItemIds(
@@ -126,7 +166,7 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     )
 
     # Will be deleted
-    willBeDeletedIds: list[int] = set(
+    willBeDeletedIdsSet: set[int] = set(
         localItemIdsSet - fetchedItemIdsSet
     )
 
@@ -148,7 +188,8 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     # These are different from line 50.
     # If you manually remove items from collection.json,
     # then we do not longer have any info about them. So we scan for all folders,
-    # and delete all folders that are not in names list (folders are named using item names)
+    # and delete all folders that are not in names list
+    # (folders are named using item names)
     willBeDeletedFolders: list[str] = list(
         dir for dir
         in filemanager.listDirsInDirectory(collectionDirectory)
@@ -156,7 +197,7 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
     )
 
     if (len(willBeUpdatedIds) == 0 and
-            len(willBeDeletedIds) == 0 and
+            len(willBeDeletedIdsSet) == 0 and
             len(willBeAddedIds) == 0 and
             len(willBeDeletedFolders) == 0
         ):
@@ -186,11 +227,11 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
             f"{logger.Indent(1)}Ignoring {len(willBeIgnoredIds)} up to date items"
         )
 
-    if ((len(willBeDeletedIds) > 0 or len(willBeDeletedFolders)) and removeDeletedItems):
+    if ((len(willBeDeletedIdsSet) > 0 or len(willBeDeletedFolders)) and removeDeletedItems):
         logger.LogMessage(
-            f"{logger.Indent(1)}Removing {len(willBeDeletedIds) + len(willBeDeletedFolders)} items"
+            f"{logger.Indent(1)}Removing {len(willBeDeletedIdsSet) + len(willBeDeletedFolders)} items"
         )
-        for index, itemId in enumerate(willBeDeletedIds):
+        for index, itemId in enumerate(willBeDeletedIdsSet):
             itemIndex = localItemIdsList.index(itemId)
             item = collection.localItems[itemIndex]
             logger.LogError(
@@ -210,9 +251,10 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
             )
             if (filemanager.doesDirectoryExist(f"{_ongoingDownloadSaveDirectory}/{folder}")):
                 filemanager.deleteDirectory(
-                    f"{_ongoingDownloadSaveDirectory}/{folder}")
+                    f"{_ongoingDownloadSaveDirectory}/{folder}"
+                )
 
-    failedToUpdateIds: list[WorkshopItem] = []
+    failedToUpdateIds: list[int] = []
     if len(willBeUpdatedIds) > 0:
         logger.LogMessage(
             f"{logger.Indent(1)}Updating {len(willBeUpdatedIds)} old items"
@@ -229,8 +271,7 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
 
             logger.LogMessage(
                 f"{logger.Indent(1)}"
-                f"{index}. "
-                f"{fetchedItem.name}"
+                f"{index}. {fetchedItem.name}"
             )
 
             if (filemanager.doesDirectoryExist(localItemDirectory) and removeOldItems):
@@ -241,18 +282,36 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
                 logger.LogMessage(f"{logger.Indent(2)}Deleting old folder...")
                 filemanager.deleteDirectory(fetchedItemDirectory)
 
-            downloadedData = downloadItem(fetchedItem)
-            if (downloadedData == None):
+            downloadedData = None
+            try:
+                downloadedData = downloadItem(fetchedItem)
+            except TimeoutError:
+                logger.LogError(
+                    f"{logger.Clear()}"
+                    f"{logger.Up()}"
+                    f"{logger.Indent(1)}{index}. {fetchedItem.name}: timeout reached"
+                )
                 failedToUpdateIds.append(fetchedItem.id)
                 continue
-            logger.LogMessage(f"{logger.Indent(2)}Extracting...")
+
+            logger.LogMessage(f"{logger.Indent(2)}Extracting...", '\r')
             try:
                 filemanager.saveZipFile(fetchedItemDirectory, downloadedData)
                 _ongoingDownloadDownloadedItems.append(fetchedItem)
             except BadZipFile:
                 logger.LogError(
-                    "Error occured while trying to unzip this item")
+                    f"{logger.Clear()}"
+                    f"{logger.Up()}"
+                    f"{logger.Indent(1)}{index}. {fetchedItem.name}: bad zip file"
+                )
                 failedToUpdateIds.append(fetchedItem.id)
+                continue
+
+            logger.LogSuccess(
+                f"{logger.Clear()}"
+                f"{logger.Up()}"
+                f"{logger.Indent(1)}{index}. {fetchedItem.name}"
+            )
 
     failedToAddIds: list[int] = []
     if len(willBeAddedIds) > 0:
@@ -267,25 +326,42 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
 
             logger.LogMessage(
                 f"{logger.Indent(1)}"
-                f"{index}. "
-                f"{fetchedItem.name}"
+                f"{index}. {fetchedItem.name}"
             )
 
-            downloadedData = downloadItem(fetchedItem)
-            if (downloadedData == None):
+            downloadedData: bytes = None
+            try:
+                downloadedData = downloadItem(fetchedItem)
+            except TimeoutError:
+                logger.LogError(
+                    f"{logger.Clear()}"
+                    f"{logger.Up()}"
+                    f"{logger.Indent(1)}{index}. {fetchedItem.name}: timeout reached"
+                )
                 failedToAddIds.append(fetchedItem.id)
                 continue
+
             if (filemanager.doesDirectoryExist(fetchedItemDirectory)):
                 filemanager.deleteDirectory(fetchedItemDirectory)
-            logger.LogMessage(f"{logger.Indent(2)}Extracting...")
+
+            logger.LogMessage(f"{logger.Indent(2)}Extracting...", '\r')
             try:
                 filemanager.saveZipFile(fetchedItemDirectory, downloadedData)
                 _ongoingDownloadDownloadedItems.append(fetchedItem)
             except BadZipFile:
                 logger.LogError(
-                    "Error occured while trying to unzip this item"
+                    f"{logger.Clear()}"
+                    f"{logger.Up()}"
+                    f"{logger.Indent(1)}{index}. {fetchedItem.name}: bad zip file"
                 )
                 failedToAddIds.append(fetchedItem.id)
+                continue
+
+            logger.LogSuccess(
+                f"{logger.Clear()}"
+                f"{logger.Up()}"
+                f"{logger.Indent(1)}{index}. {item.name}"
+            )
 
     # this ensures we do not update old items which failed to download
     for item in collection.fetchedItems:
@@ -311,15 +387,12 @@ def UpdateCollection(collection: WorkshopCollection, directory: str, removeOldIt
         True
     )
 
-    _ongoingDownload = None
-    _ongoingDownloadSaveDirectory = None
-    _ongoingDownloadDownloadedItems = []
-
+    onDownloadStopped()
     logger.LogSuccess(
         f"{logger.StartIndent()}Updated collection: {collection.name}.\n"
-        f"{logger.Indent(1)}Added items: {len(willBeAddedIds) - len(failedToAddIds)}/{len(willBeAddedIds)}\n"
+        f"{logger.Indent(1)}New items:     {len(willBeAddedIds) - len(failedToAddIds)}/{len(willBeAddedIds)}\n"
         f"{logger.Indent(1)}Updated items: {len(willBeUpdatedIds) - len(failedToUpdateIds)}/{len(willBeUpdatedIds)}\n"
-        f"{logger.Indent(1)}Removed items: {len(willBeDeletedIds) + len(willBeDeletedFolders)}"
+        f"{logger.Indent(1)}Removed items: {len(willBeDeletedIdsSet) + len(willBeDeletedFolders)}"
     )
 
 
@@ -355,8 +428,7 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
         return
 
     logger.LogMessage(
-        f"{logger.StartIndent()}"
-        f"Downloading collection: {collection.name}"
+        f"{logger.StartIndent()}Downloading collection: {collection.name}"
     )
 
     global _ongoingDownload
@@ -371,32 +443,54 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
 
     failedDownloadIds: list[int] = []
     for index, item in enumerate(collection.fetchedItems):
+        itemDirectory = f"{_ongoingDownloadSaveDirectory}/{item.name}"
+
         logger.LogMessage(
             f"{logger.Indent(1)}"
-            f"{index}. "
-            f"{item.name}"
+            f"{index}. {item.name}"
         )
 
-        downloadedData = downloadItem(item)
-        if (downloadedData == None):
+        downloadedData = None
+        try:
+            downloadedData = downloadItem(item)
+        except TimeoutError:
+            logger.LogError(
+                f"{logger.Clear()}"
+                f"{logger.Up()}"
+                f"{logger.Indent(1)}{index}. {item.name}: timeout reached"
+            )
             failedDownloadIds.append(item.id)
             continue
-        itemDirectory = f"{_ongoingDownloadSaveDirectory}/{item.name}"
+
         if (filemanager.doesDirectoryExist(itemDirectory)):
             filemanager.deleteDirectory(itemDirectory)
-        logger.LogMessage(f"{logger.Indent(2)}Extracting...")
+
+        logger.LogMessage(
+            f"{logger.Clear()}{logger.Indent(2)}Extracting...",
+            "\r"
+        )
         try:
             filemanager.saveZipFile(itemDirectory, downloadedData)
             _ongoingDownloadDownloadedItems.append(item)
         except BadZipFile:
-            logger.LogError("Error occured while trying to unzip this item")
+            logger.LogError(
+                f"{logger.Clear()}"
+                f"{logger.Up()}"
+                f"{logger.Indent(1)}{index}. {item.name}: bad zip file"
+            )
             failedDownloadIds.append(item.id)
+            continue
+
+        logger.LogSuccess(
+            f"{logger.Clear()}"
+            f"{logger.Up()}"
+            f"{logger.Indent(1)}{index}. {item.name}"
+        )
 
     filemanager.saveCollectionAsJson(
         f"{_ongoingDownloadSaveDirectory}/collection.json",
         _ongoingDownload,
         _ongoingDownloadDownloadedItems,
-        _ongoingDownloadSaveDirectory,
         True
     )
     filemanager.saveCollectionAsJson(
@@ -406,13 +500,11 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
         True
     )
 
-    _ongoingDownload = None
-    _ongoingDownloadSaveDirectory = None
-    _ongoingDownloadDownloadedItems = []
+    onDownloadStopped()
 
-    logger.LogSuccess(
-        f"Downloaded collection: {collection.name}\n"
-        f"Downloaded items: {len(_ongoingDownloadDownloadedItems)}/{len(collection.fetchedItems)}"
+    logger.LogMessage(
+        f"{logger.StartIndent()}Downloaded collection: {collection.name}\n"
+        f"{logger.Indent(1)}Downloaded items: {len(_ongoingDownloadDownloadedItems)}/{len(collection.fetchedItems)}"
     )
 
 
@@ -422,7 +514,7 @@ def getSteamDownloaderUrl(item: WorkshopItem):
     if (not SteamAPI.Validator.ValidSteamItemId(item.id)):
         raise ValueError(f"item's ({item}) id is not valid")
 
-    requestUrl = "https://node03.steamworkshopdownloader.io/prod/api/download/request"
+    requestUrl = Settings.getRequestUrl()
     requestData = {
         "publishedFileId": item.id,
         "collectionId": None,
@@ -440,7 +532,7 @@ def getSteamDownloaderUrl(item: WorkshopItem):
     uuid = json.loads(requestResponse.text)["uuid"]
     for _ in range(3):
         time.sleep(2)
-        statusUrl = "https://node03.steamworkshopdownloader.io/prod/api/download/status"
+        statusUrl = Settings.getStatusUrl()
         statusData = f'''{{"uuids":["{uuid}"]}}'''
         statusHeaders = {
             "Content-type": "application/json"
@@ -460,59 +552,45 @@ def getSteamDownloaderUrl(item: WorkshopItem):
     )
 
 
-# def getSteamDownloaderCachedUrl(item: WorkshopItem):
-#     url = "http://steamworkshop.download/online/steamonline.php"
-#     data = {"item": item.id, "app": item.appid}
-#     headers = {"Content-type": "application/x-www-form-urlencoded"}
-#     response = requests.post(
-#         url, data=data, headers=headers
-#     )
-#     if (response.text == "" or response.text == "<pre>Sorry, this file is not available. Need re-download.</pre>"):
-#         logger.LogError(
-#             f"{logger.Indent(3)}Error downloading. Please try ot download this item manually."
-#         )
-#         return
-#     zipFileUrl = response.text.split("<a href='")[1].split("'>")[0]
-#     return zipFileUrl
-
-
 def downloadItem(item: WorkshopItem) -> bytes:
     '''Downloads an item'''
     chunkSize = 1024
 
     if (not SteamAPI.Validator.ValidSteamItemId(item.id) or
             not SteamAPI.Validator.ValidSteamItemId(item.appid)
-            ):
+        ):
         raise Exception(
             "Can't download item without knowing its id or its app id."
         )
 
-    try:
+    zipFileUrl: str = ""
+    with Spinner(
+        f"{logger.Indent(2)}Fetching zipfile location ",
+        delay=0.5
+    ):
         zipFileUrl = getSteamDownloaderUrl(item)
-    except TimeoutError:
-        logger.LogError(
-            f"{logger.Indent(2)}Error occured while trying to download this item."
-        )
-        return None
 
     with io.BytesIO() as memoryFile:
         downloadResponse = requests.get(zipFileUrl, stream=True)
         filesize = downloadResponse.headers.get('content-length')
         if filesize is None:
-            logger.LogWarning(
-                f"{logger.Indent(2)}Can't track download progress. Downloading {filesize} bytes..."
-            )
-            memoryFile.write(downloadResponse.content)
+            with Spinner(
+                f"{logger.Indent(2)}Downloading ",
+                delay=0.3
+            ):
+                memoryFile.write(downloadResponse.content)
         else:
-            print(
-                f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, 0)}", end="\r"
+            logger.LogMessage(
+                f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, 0)}",
+                end="\r"
             )
             for chunk in downloadResponse.iter_content(chunkSize):
                 memoryFile.write(chunk)
                 fillPercentage = memoryFile.getbuffer().nbytes / int(filesize) * 100
-                print(
-                    f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, fillPercentage)}", end="\r"
+                logger.LogMessage(
+                    f"{logger.Indent(2)}Downloading {logger.ProgressBar(30, fillPercentage)}",
+                    end='\r'
                 )
-            logger.LogMessage("")
+
         memoryFile.seek(0)
         return memoryFile.read()

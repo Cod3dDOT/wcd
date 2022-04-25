@@ -73,12 +73,12 @@ def saveZipFile(directory: str, zipFileBytes: bytes):
 
     if (doesDirectoryExist(directory)):
         raise Exception(f"Directory already exists: {directory}")
-    
+
     zipFile = zipfile.ZipFile(io.BytesIO(zipFileBytes))
     zipFile.extractall(directory)
 
 
-def saveCollectionAsJson(path: str, collection: WorkshopCollection, items: list[WorkshopItem], overrideFile: False):
+def saveCollectionAsJson(path: str, collection: WorkshopCollection, items: list[WorkshopItem], overrideFile: bool = False):
     '''Saves collection to .json file. path MUST include filename and end with .json'''
     AssertParameter(path, str, "path")
     AssertParameter(collection, WorkshopCollection, "collection")

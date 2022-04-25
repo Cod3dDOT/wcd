@@ -14,42 +14,57 @@ class Validator:
     @staticmethod
     def ValidSteamItemUrl(url: str) -> bool:
         '''Checks if steam item url is valid'''
-        regexString = "(?:https?:\/\/)?steamcommunity\.com\/sharedfiles\/filedetails\/(?:\?id=)[0-9]+"
         if (not isinstance(url, str)):
             return False
-        return False if re.match(regexString, url) is None else True
 
-    @staticmethod
+        regexStrings = [
+            "(?:https?:\/\/)?steamcommunity\.com\/sharedfiles\/filedetails\/(?:\?id=)[0-9]+",
+            "(?:https?:\/\/)?steamcommunity\.com\/workshop\/filedetails\/(?:\?id=)[0-9]+"
+        ]
+
+        matched = True if len(
+            [
+                string for string
+                in regexStrings
+                if re.match(string, url)
+            ]
+        ) > 0 else False
+
+        return matched
+
+    @ staticmethod
     def ValidSteamItemId(id: int) -> bool:
         '''Checks if steam item id is valid'''
         return isinstance(id, int) and id > 0
 
 
 class Converter:
-    @staticmethod
+    @ staticmethod
     def IdFromUrl(url: str) -> int:
         '''Returns id from steam url.'''
         if (not Validator.ValidSteamItemUrl(url)):
-            return None
+            return -1
         id = int(url.split("?id=")[1])
         if (not Validator.ValidSteamItemId(id)):
-            return None
+            return -1
         return id
 
-    @staticmethod
-    def UrlFromId(id):
+    @ staticmethod
+    def UrlFromId(id: int) -> str:
         '''Returns steam url from id.'''
         if (not Validator.ValidSteamItemId(id)):
-            return
-        return f"https://steamcommunity.com/workshop/filedetails/?id={id}"
+            raise SteamAPIException("Id is not valid")
+        return f"https://steamcommunity.com/sharedfiles/filedetails/?id={id}"
 
 
 class ISteamRemoteStorage:
-    @staticmethod
+    @ staticmethod
     def GetCollectionDetails(collectionId: int) -> dict:
         '''Returns id from steam url.'''
         if (not Validator.ValidSteamItemId(collectionId)):
-            raise SteamAPIException("Collection id is not valid.")
+            raise SteamAPIException(
+                f"Collection id is not valid: {collectionId}"
+            )
 
         apiString = "http://api.steampowered.com/ISteamRemoteStorage/GetCollectionDetails/v1"
 
@@ -63,13 +78,13 @@ class ISteamRemoteStorage:
         except:
             raise SteamAPIException(
                 f"{logger.StartIndent()}Uknown error occurred while trying to fetch collection details.\n"
-                f"{logger.Indent(1)}Error occured while decoding json response from steam api.\n"
+                f"{logger.Indent(1)}Error occured while decoding json response from steam API.\n"
                 f"{logger.Indent(1)}Response status code: {response.status_code}."
             )
         if (not "response" in reponseDictionary):
             raise SteamAPIException(
                 f"{logger.StartIndent()}Uknown error occurred while trying to fetch collection details.\n"
-                f"{logger.Indent(1)}Steam api returned empty response.\n"
+                f"{logger.Indent(1)}Steam API returned empty response.\n"
                 f"{logger.Indent(1)}Response status code: {response.status_code}."
             )
 
@@ -77,14 +92,14 @@ class ISteamRemoteStorage:
         if (steamApiResult != 1):
             raise SteamAPIException(
                 f"{logger.StartIndent()}Uknown error occurred while trying to fetch collection details.\n"
-                f"{logger.Indent(1)}Steam api returned result code: {steamApiResult}"
+                f"{logger.Indent(1)}Steam API returned result code: {steamApiResult}"
             )
 
         collectitonDetails = reponseDictionary["response"]["collectiondetails"][0]
         collectionSteamApiResult = collectitonDetails["result"]
         if (collectionSteamApiResult != 1):
             if (collectionSteamApiResult == 9):
-                raise SteamAPIException("Collection doesnt exist!")
+                raise SteamAPIException("Collection does not exist!")
             else:
                 raise SteamAPIException(
                     f"{logger.StartIndent()}Uknown error occurred while trying to fetch collection details.\n"
@@ -92,7 +107,7 @@ class ISteamRemoteStorage:
                 )
         return collectitonDetails
 
-    @staticmethod
+    @ staticmethod
     def GetPublishedFileDetails(fileIdList: list[int]) -> dict:
         apiUrl = "http://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1"
 
@@ -139,7 +154,7 @@ class ISteamRemoteStorage:
         return publishedFileDetails
 
 
-def GetWorkshopCollectionInfo(collectionId: str) -> tuple[str, int, list[WorkshopItem]]:
+def GetWorkshopCollectionInfo(collectionId: int) -> tuple[str, int, list[WorkshopItem]]:
     '''Returns collection name, appid and list of workshop items'''
 
     collectionDetails = None
@@ -200,7 +215,12 @@ def GetItemsInfo(fileIdList: list[int]) -> list[WorkshopItem]:
                 )
 
     return [
-        WorkshopItem(int(item["publishedfileid"]), int(item["consumer_app_id"]), item["title"], item["time_updated"]) for item
+        WorkshopItem(
+            int(item["publishedfileid"]),
+            int(item["consumer_app_id"]),
+            item["title"],
+            int(item["time_updated"])
+        ) for item
         in items
         if item["result"] == 1
     ]

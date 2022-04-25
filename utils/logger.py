@@ -1,9 +1,65 @@
+from typing import Iterable
 from termcolor import colored
 import os
+import sys
+import itertools
+import time
+import threading
 
 from utils import AssertParameter
 
 os.system("")
+
+
+class Spinner:
+    spinner: Iterable = []
+    delay: float = 0
+    busy: bool = False
+    spinner_visible: bool = False
+
+    def __init__(self, message: str, delay: float = 0.1):
+        self.spinner = itertools.cycle(['-', '/', '|', '\\'])
+        self.delay = delay
+        self.busy = False
+        self.spinner_visible = False
+        sys.stdout.write(message)
+
+    def write_next(self):
+        with self._screen_lock:
+            if not self.spinner_visible:
+                sys.stdout.write(next(self.spinner))
+                self.spinner_visible = True
+                sys.stdout.flush()
+
+    def remove_spinner(self, cleanup=False):
+        with self._screen_lock:
+            if self.spinner_visible:
+                sys.stdout.write('\b')
+                self.spinner_visible = False
+                if cleanup:
+                    sys.stdout.write(' ')       # overwrite spinner with blank
+                    sys.stdout.write('\r')      # move to next line
+                sys.stdout.flush()
+
+    def spinner_task(self):
+        while self.busy:
+            self.write_next()
+            time.sleep(self.delay)
+            self.remove_spinner()
+
+    def __enter__(self):
+        if sys.stdout.isatty():
+            self._screen_lock = threading.Lock()
+            self.busy = True
+            self.thread = threading.Thread(target=self.spinner_task)
+            self.thread.start()
+
+    def __exit__(self, exception, value, tb):
+        if sys.stdout.isatty():
+            self.busy = False
+            self.remove_spinner(cleanup=True)
+        else:
+            sys.stdout.write('\r')
 
 
 def ProgressBar(length: int, percentage: float) -> str:
@@ -60,6 +116,14 @@ def YesOrNoQuery(question: str, default: bool = True, yesTooltip: str = "", noTo
             )
 
 
+def Up() -> str:
+    return '\x1B[1F'
+
+
+def Clear() -> str:
+    return '\x1B[0K'
+
+
 def StartIndent() -> str:
     '''Retuns start indent'''
     return " - "
@@ -76,16 +140,16 @@ def LogSuccess(message: str) -> None:
     print(colored(message, "green"))
 
 
-def LogMessage(message: str) -> None:
+def LogMessage(message: str, end: str = "\n") -> None:
     '''Prints message'''
-    print(message)
+    print(message, end=end)
 
 
-def LogWarning(warning: str) -> None:
+def LogWarning(warning: str, end: str = "\n") -> None:
     '''Prints yellow-colored warning message'''
-    print(colored(warning, "yellow"))
+    print(colored(warning, "yellow"), end=end)
 
 
-def LogError(error: str) -> None:
+def LogError(error: str, end: str = "\n") -> None:
     '''Prints red-colored error message'''
-    print(colored(error, "red"))
+    print(colored(error, "red"), end=end)
