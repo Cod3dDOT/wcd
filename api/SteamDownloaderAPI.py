@@ -4,18 +4,42 @@ from zipfile import BadZipFile
 import requests
 import io
 import time
+import random
 
 from classes import WorkshopCollection
 from classes import WorkshopItem
 
 from utils import AssertParameter, filemanager, logger
-from utils.logger import Spinner
+from utils.logger import Indent, Spinner
 from api import SteamAPI
 
 
 _ongoingDownload: WorkshopCollection = None
 _ongoingDownloadSaveDirectory: str = ""
 _ongoingDownloadDownloadedItems: list[WorkshopItem] = []
+
+class Settings:
+    # taken from main.js on steamworkshopdownloader.io
+    nodeRange: list[int] = [4, 8]
+    nodeId: int = random.randint(nodeRange[0], nodeRange[1])
+    
+    def getEndpointUrl():
+        return f"https://node0{Settings.getNodeId()}.steamworkshopdownloader.io/prod/api/download/"
+
+    def getNodeId():
+        return Settings.nodeId
+    
+    def setNodeId(nodeId: int):
+        AssertParameter(nodeId, (int), "nodeId")
+        if (nodeId != Settings.nodeRange):
+            raise ValueError(f"nodeId not in node range: {nodeId} not in {Settings.nodeRange}")
+        Settings.nodeId = nodeId
+
+    def getRequestUrl():
+        return Settings.getEndpointUrl() + "request"
+
+    def getStatusUrl():
+        return Settings.getEndpointUrl() + "status"
 
 
 def IsDownloading() -> bool:
@@ -478,9 +502,9 @@ def DownloadCollection(collection: WorkshopCollection, directory: str, overrideE
 
     onDownloadStopped()
 
-    logger.LogSuccess(
-        f"Downloaded collection: {collection.name}\n"
-        f"Downloaded items: {len(_ongoingDownloadDownloadedItems)}/{len(collection.fetchedItems)}"
+    logger.LogMessage(
+        f"{logger.StartIndent()}Downloaded collection: {collection.name}\n"
+        f"{logger.Indent(1)}Downloaded items: {len(_ongoingDownloadDownloadedItems)}/{len(collection.fetchedItems)}"
     )
 
 
@@ -490,7 +514,7 @@ def getSteamDownloaderUrl(item: WorkshopItem):
     if (not SteamAPI.Validator.ValidSteamItemId(item.id)):
         raise ValueError(f"item's ({item}) id is not valid")
 
-    requestUrl = "https://node03.steamworkshopdownloader.io/prod/api/download/request"
+    requestUrl = Settings.getRequestUrl()
     requestData = {
         "publishedFileId": item.id,
         "collectionId": None,
@@ -508,7 +532,7 @@ def getSteamDownloaderUrl(item: WorkshopItem):
     uuid = json.loads(requestResponse.text)["uuid"]
     for _ in range(3):
         time.sleep(2)
-        statusUrl = "https://node03.steamworkshopdownloader.io/prod/api/download/status"
+        statusUrl = Settings.getStatusUrl()
         statusData = f'''{{"uuids":["{uuid}"]}}'''
         statusHeaders = {
             "Content-type": "application/json"
