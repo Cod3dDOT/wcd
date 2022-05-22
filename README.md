@@ -22,8 +22,10 @@ Yes, you can modify or create your own collection.json files, and then use them 
 The script will download any items, which are specified in collection.json file.
 
 #### Color coding
-- `- Failed to download/update`
-- `+ Downloaded/updated successfully`
+```diff
+- Failed to download/update
++ Downloaded/updated successfully
+```
 
 Errors:
 - timeout reached: steamdownloader.io did not return zip file in time.
